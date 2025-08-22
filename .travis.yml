@@ -1,14 +1,19 @@
 language: node_js
 
 node_js:
-  - "20"
-  - "18"
-  - "16"
-  - "lts/*"
+  - '20'
+  - '18'
+  - '16'
+  - 'lts/*'
 
 os:
   - linux
   - osx
   - windows
-    
-# Coverage reporting removed - update to modern coverage tools if needed  
+
+script:
+  - npm run build
+  - npm run lint
+  - npm run format:check
+  - npm test
+# Coverage reporting removed - update to modern coverage tools if needed
