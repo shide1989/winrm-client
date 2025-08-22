@@ -1,13 +1,21 @@
-# nodejs-winrm
+# winrm-client
 
-[![npm version](https://badge.fury.io/js/nodejs-winrm.svg)](https://badge.fury.io/js/nodejs-winrm)
-[![Build Status](https://travis-ci.org/shide1989/nodejs-winrm.svg?branch=master)](https://travis-ci.org/shide1989/nodejs-winrm)
-[![Build Status](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_apis/build/status/shide1989.nodejs-winrm?branchName=master)](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_build/latest?definitionId=1?branchName=master)
+[![npm version](https://badge.fury.io/js/winrm-client.svg)](https://badge.fury.io/js/winrm-client)
+[![Build Status](https://travis-ci.org/shide1989/winrm-client.svg?branch=master)](https://travis-ci.org/shide1989/winrm-client)
+[![Build Status](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_apis/build/status/shide1989.winrm-client?branchName=master)](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_build/latest?definitionId=1?branchName=master)
 
-⚠️ This is am updated fork of the original [nodejs-winrm](https://github.com/shoneslab/nodejs-winrm) project that doesnt seem to be maintained anymore.
+⚠️ This is an updated fork of the original [nodejs-winrm](https://github.com/shoneslab/nodejs-winrm) project that doesn't seem to be maintained anymore.
 
-nodejs-winrm is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines.
+winrm-client is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines.
 Please visit [Microsoft's WinRM site](http://msdn.microsoft.com/en-us/library/aa384426.aspx) for WINRM details.
+
+### ⬆️ Migration from nodejs-winrm
+
+Replace `shell` and `command` with `Shell` and `Command`.
+
+```javascript
+const { Shell, Command } = require('winrm-client');
+```
 
 ## Supported NodeJS Versions
 
@@ -42,7 +50,7 @@ y
 
 On the client side where NodeJS is installed
 
-`npm install nodejs-winrm`
+`npm install winrm-client`
 
 ## TypeScript Support
 
@@ -87,7 +95,7 @@ The library exports the following main types:
 #### JavaScript
 
 ```javascript
-var winrm = require('nodejs-winrm');
+const winrm = require('winrm-client');
 winrm.runCommand(
   'mkdir D:\\winrmtest001',
   '10.xxx.xxx.xxx',
@@ -107,7 +115,7 @@ winrm.runCommand(
 #### TypeScript
 
 ```typescript
-import { runCommand, runPowershell } from 'nodejs-winrm';
+import { runCommand, runPowershell } from 'winrm-client';
 
 async function executeCommand(): Promise<void> {
   try {
@@ -139,18 +147,18 @@ executeCommand();
 ### Run multiple Commands (Advanced)
 
 ```javascript
-var winrm = require('nodejs-winrm');
+const winrm = require('winrm-client');
 
-var userName = 'userName';
-var password = 'password';
-var _host = '10.xxx.xxx.xxx';
-var _port = 5985;
+const userName = 'userName';
+const password = 'password';
+const host = '10.xxx.xxx.xxx';
+const port = 5985;
 
-var auth =
+const auth =
   'Basic ' + Buffer.from(userName + ':' + password, 'utf8').toString('base64');
-var params = {
-  host: _host,
-  port: _port,
+const params = {
+  host,
+  port,
   path: '/wsman',
 };
 params['auth'] = auth;
@@ -161,12 +169,12 @@ params['shellId'] = await winrm.shell.doCreateShell(params);
 // Execute Command1
 params['command'] = 'ipconfig /all';
 params['commandId'] = await winrm.command.doExecuteCommand(params);
-var result1 = await winrm.command.doReceiveOutput(params);
+const result1 = await winrm.command.doReceiveOutput(params);
 
 // Execute Command2
 params['command'] = 'mkdir D:\\winrmtest001';
 params['commandId'] = await winrm.command.doExecuteCommand(params);
-var result2 = await winrm.command.doReceiveOutput(params);
+const result2 = await winrm.command.doReceiveOutput(params);
 
 // Close the Shell
 await winrm.shell.doDeleteShell(params);

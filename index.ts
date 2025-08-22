@@ -1,40 +1,40 @@
-import * as shell from './src/shell';
-import * as command from './src/command';
+import * as Shell from './src/shell';
+import * as Command from './src/command';
 
-export { shell, command };
+export { Shell, Command };
 
 export async function runCommand(
-  _command: string,
-  _host: string,
-  _username: string,
-  _password: string,
-  _port: number,
-  _usePowershell = false
+  command: string,
+  host: string,
+  username: string,
+  password: string,
+  port: number,
+  usePowershell = false
 ): Promise<string | Error> {
   try {
     const auth =
       'Basic ' +
-      Buffer.from(_username + ':' + _password, 'utf8').toString('base64');
+      Buffer.from(username + ':' + password, 'utf8').toString('base64');
     const params = {
-      host: _host,
-      port: _port,
+      host,
+      port,
       path: '/wsman',
       auth: auth,
     };
 
-    const shellId = await shell.doCreateShell(params);
+    const shellId = await Shell.doCreateShell(params);
     if (shellId instanceof Error) {
       return shellId;
     }
 
     const shellParams = { ...params, shellId };
-    const commandParams = { ...shellParams, command: _command };
+    const commandParams = { ...shellParams, command };
 
     let commandId: string | Error;
-    if (_usePowershell) {
-      commandId = await command.doExecutePowershell(commandParams);
+    if (usePowershell) {
+      commandId = await Command.doExecutePowershell(commandParams);
     } else {
-      commandId = await command.doExecuteCommand(commandParams);
+      commandId = await Command.doExecuteCommand(commandParams);
     }
 
     if (commandId instanceof Error) {
@@ -42,9 +42,9 @@ export async function runCommand(
     }
 
     const receiveParams = { ...commandParams, commandId };
-    const output = await command.doReceiveOutput(receiveParams);
+    const output = await Command.doReceiveOutput(receiveParams);
 
-    await shell.doDeleteShell(shellParams);
+    await Shell.doDeleteShell(shellParams);
 
     return output;
   } catch (error) {
@@ -54,11 +54,11 @@ export async function runCommand(
 }
 
 export async function runPowershell(
-  _command: string,
-  _host: string,
-  _username: string,
-  _password: string,
-  _port: number
+  command: string,
+  host: string,
+  username: string,
+  password: string,
+  port: number
 ): Promise<string | Error> {
-  return runCommand(_command, _host, _username, _password, _port, true);
+  return runCommand(command, host, username, password, port, true);
 }
