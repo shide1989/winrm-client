@@ -19,7 +19,7 @@ module.exports.runCommand = async function (_command, _host, _username, _passwor
         params['shellId'] = shellId;
     
         params['command'] = _command;
-        var commandId
+        var commandId;
         if ( _usePowershell ) {
             commandId = await command.doExecutePowershell(params);
         } else {
@@ -41,4 +41,4 @@ module.exports.runCommand = async function (_command, _host, _username, _passwor
 
 module.exports.runPowershell = async function (_command, _host, _username, _password, _port) {
   return module.exports.runCommand(_command, _host, _username, _password, _port, true);
-}
+};

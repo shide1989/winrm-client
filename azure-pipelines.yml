@@ -7,13 +7,24 @@ trigger:
 - master
 
 pool:
-  vmImage: 'Ubuntu-16.04'
+  vmImage: 'ubuntu-latest'
+
+strategy:
+  matrix:
+    Node16:
+      node_version: '16.x'
+    Node18:
+      node_version: '18.x'
+    Node20:
+      node_version: '20.x'
+    NodeLatest:
+      node_version: 'latest'
 
 steps:
 - task: NodeTool@0
   inputs:
-    versionSpec: '8.x'
-  displayName: 'Install Node.js'
+    versionSpec: '$(node_version)'
+  displayName: 'Install Node.js $(node_version)'
 
 - script: |
     npm install

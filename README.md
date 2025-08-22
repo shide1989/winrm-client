@@ -1,15 +1,19 @@
 # nodejs-winrm
 
 [![npm version](https://badge.fury.io/js/nodejs-winrm.svg)](https://badge.fury.io/js/nodejs-winrm)
-[![Build Status](https://travis-ci.org/shoneslab/nodejs-winrm.svg?branch=master)](https://travis-ci.org/shoneslab/nodejs-winrm)
-[![Build Status](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_apis/build/status/shoneslab.nodejs-winrm?branchName=master)](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_build/latest?definitionId=1?branchName=master)
+[![Build Status](https://travis-ci.org/shide1989/nodejs-winrm.svg?branch=master)](https://travis-ci.org/shide1989/nodejs-winrm)
+[![Build Status](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_apis/build/status/shide1989.nodejs-winrm?branchName=master)](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_build/latest?definitionId=1?branchName=master)
+
+⚠️ This is am updated fork of the original [nodejs-winrm](https://github.com/shoneslab/nodejs-winrm) project that doesnt seem to be maintained anymore.
 
 nodejs-winrm is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines.
 Please visit [Microsoft's WinRM site](http://msdn.microsoft.com/en-us/library/aa384426.aspx) for WINRM details.
 
 ## Supported NodeJS Versions
 
-Tested on NodeJS Version > 8.11
+Supports NodeJS Version >= 16.0.0
+
+Tested on NodeJS versions 16, 18, 20, and latest LTS.
 
 ## Supported WinRM Versions
 
@@ -88,7 +92,7 @@ await winrm.shell.doDeleteShell(params);
 `npm test`
 
 ## Maintainers
-* Shone Jacob (https://github.com/shoneslab)
+* Sebastien Hideux (https://github.com/shide1989)
 
 ## Credits
 * https://github.com/jacobludriks/winrmjs

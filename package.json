@@ -13,17 +13,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shoneslab/nodejs-winrm.git"
+    "url": "git+https://github.com/shide1989/nodejs-winrm.git"
   },
   "keywords": [
     "winrm"
   ],
-  "author": "Shone Jacob",
+  "author": "Sebastien Hideux",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/shoneslab/nodejs-winrm/issues"
+    "url": "https://github.com/shide1989/nodejs-winrm/issues"
   },
-  "homepage": "https://github.com/shoneslab/nodejs-winrm#readme",
+  "homepage": "https://github.com/shide1989/nodejs-winrm#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "jest": {
     "automock": false,
     "coveragePathIgnorePatterns": [],
@@ -41,12 +44,12 @@
     ]
   },
   "dependencies": {
-    "uuid": "^3.3.2",
-    "js2xmlparser": "^3.0.0",
-    "xml2js": "^0.4.19"
+    "uuid": "^11.1.0",
+    "js2xmlparser": "^5.0.0",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "eslint": "^5.10.0",
-    "jest": "^23.6.0"
+    "eslint": "^9.33.0",
+    "jest": "^30.0.5"
   }
 }
