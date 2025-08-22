@@ -10,7 +10,7 @@ export async function runCommand(
   password: string,
   port: number,
   usePowershell = false
-): Promise<string | Error> {
+): Promise<string> {
   try {
     const auth =
       'Basic ' +
@@ -23,22 +23,15 @@ export async function runCommand(
     };
 
     const shellId = await Shell.doCreateShell(params);
-    if (shellId instanceof Error) {
-      return shellId;
-    }
 
     const shellParams = { ...params, shellId };
     const commandParams = { ...shellParams, command };
 
-    let commandId: string | Error;
+    let commandId: string;
     if (usePowershell) {
       commandId = await Command.doExecutePowershell(commandParams);
     } else {
       commandId = await Command.doExecuteCommand(commandParams);
-    }
-
-    if (commandId instanceof Error) {
-      return commandId;
     }
 
     const receiveParams = { ...commandParams, commandId };
@@ -49,7 +42,7 @@ export async function runCommand(
     return output;
   } catch (error) {
     console.log('error', error);
-    return error instanceof Error ? error : new Error(String(error));
+    throw error;
   }
 }
 
@@ -59,6 +52,6 @@ export async function runPowershell(
   username: string,
   password: string,
   port: number
-): Promise<string | Error> {
+): Promise<string> {
   return runCommand(command, host, username, password, port, true);
 }

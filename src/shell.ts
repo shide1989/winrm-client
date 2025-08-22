@@ -47,9 +47,7 @@ function constructDeleteShellRequest(params: WinRMParams): string {
   return parse('s:Envelope', res);
 }
 
-export async function doCreateShell(
-  params: WinRMParams
-): Promise<string | Error> {
+export async function doCreateShell(params: WinRMParams): Promise<string> {
   const req = constructCreateShellRequest();
 
   const result: CreateShellResponse = await sendHttp(
@@ -61,7 +59,7 @@ export async function doCreateShell(
   );
 
   if (result['s:Envelope']['s:Body'][0]['s:Fault']) {
-    return new Error(
+    throw new Error(
       result['s:Envelope']['s:Body'][0]['s:Fault'][0]['s:Code'][0][
         's:Subcode'
       ][0]['s:Value'][0]
@@ -73,9 +71,7 @@ export async function doCreateShell(
   }
 }
 
-export async function doDeleteShell(
-  params: WinRMParams
-): Promise<string | Error> {
+export async function doDeleteShell(params: WinRMParams): Promise<string> {
   const req = constructDeleteShellRequest(params);
 
   const result: CreateShellResponse = await sendHttp(
@@ -87,7 +83,7 @@ export async function doDeleteShell(
   );
 
   if (result['s:Envelope']['s:Body'][0]['s:Fault']) {
-    return new Error(
+    throw new Error(
       result['s:Envelope']['s:Body'][0]['s:Fault'][0]['s:Code'][0][
         's:Subcode'
       ][0]['s:Value'][0]

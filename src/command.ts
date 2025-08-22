@@ -53,9 +53,7 @@ function constructReceiveOutputRequest(params: CommandParams): string {
   return parse('s:Envelope', res);
 }
 
-export async function doExecuteCommand(
-  params: CommandParams
-): Promise<string | Error> {
+export async function doExecuteCommand(params: CommandParams): Promise<string> {
   const req = constructRunCommandRequest(params);
 
   const result: CommandResponse = await sendHttp(
@@ -67,7 +65,7 @@ export async function doExecuteCommand(
   );
 
   if (result['s:Envelope']['s:Body'][0]['s:Fault']) {
-    return new Error(
+    throw new Error(
       result['s:Envelope']['s:Body'][0]['s:Fault'][0]['s:Code'][0][
         's:Subcode'
       ][0]['s:Value'][0]
@@ -102,14 +100,12 @@ function generatePowershellCommand(params: CommandParams): string {
 
 export async function doExecutePowershell(
   params: CommandParams
-): Promise<string | Error> {
+): Promise<string> {
   params.command = generatePowershellCommand(params);
   return doExecuteCommand(params);
 }
 
-export async function doReceiveOutput(
-  params: CommandParams
-): Promise<string | Error> {
+export async function doReceiveOutput(params: CommandParams): Promise<string> {
   const req = constructReceiveOutputRequest(params);
 
   const result: ReceiveResponse = await sendHttp(
@@ -121,7 +117,7 @@ export async function doReceiveOutput(
   );
 
   if (result['s:Envelope']['s:Body'][0]['s:Fault']) {
-    return new Error(
+    throw new Error(
       result['s:Envelope']['s:Body'][0]['s:Fault'][0]['s:Code'][0][
         's:Subcode'
       ][0]['s:Value'][0]

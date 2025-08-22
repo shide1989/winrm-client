@@ -9,7 +9,7 @@ export interface WinRMParams {
 }
 
 export interface CommandParams extends WinRMParams {
-  command: string;
+  command?: string;
   commandId?: string;
 }
 
