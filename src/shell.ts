@@ -1,7 +1,11 @@
-import { parse } from 'js2xmlparser';
+import { XMLBuilder } from 'fast-xml-parser';
 import { getSoapHeaderRequest } from './base-request';
-import { sendHttp } from './http';
-import { WinRMParams, CreateShellResponse } from './types';
+import { sendHttp } from './utils/http';
+import { CreateShellResponse, WinRMParams } from './types';
+import { checkForSoapFault, extractShellId } from './utils/xml-parser';
+import { createLogger } from './utils/logger';
+
+const logger = createLogger('shell');
 
 function constructCreateShellRequest(): string {
   const res = getSoapHeaderRequest({
@@ -12,15 +16,11 @@ function constructCreateShellRequest(): string {
   res['s:Header']['wsman:OptionSet'].push({
     'wsman:Option': [
       {
-        '@': {
-          Name: 'WINRS_NOPROFILE',
-        },
+        '@Name': 'WINRS_NOPROFILE',
         '#': 'FALSE',
       },
       {
-        '@': {
-          Name: 'WINRS_CODEPAGE',
-        },
+        '@Name': 'WINRS_CODEPAGE',
         '#': '437',
       },
     ],
@@ -33,7 +33,14 @@ function constructCreateShellRequest(): string {
       },
     ],
   };
-  return parse('s:Envelope', res);
+  const builder = new XMLBuilder({
+    attributeNamePrefix: '@',
+    textNodeName: '#',
+    ignoreAttributes: false,
+    format: true,
+    suppressBooleanAttributes: false,
+  });
+  return builder.build({ 's:Envelope': res });
 }
 
 function constructDeleteShellRequest(params: WinRMParams): string {
@@ -44,10 +51,23 @@ function constructDeleteShellRequest(params: WinRMParams): string {
   });
 
   res['s:Body'] = {};
-  return parse('s:Envelope', res);
+  const builder = new XMLBuilder({
+    attributeNamePrefix: '@',
+    textNodeName: '#',
+    ignoreAttributes: false,
+    format: true,
+    suppressBooleanAttributes: false,
+  });
+  return builder.build({ 's:Envelope': res });
 }
 
 export async function doCreateShell(params: WinRMParams): Promise<string> {
+  logger.debug('Creating shell', {
+    host: params.host,
+    port: params.port,
+    path: params.path,
+  });
+
   const req = constructCreateShellRequest();
 
   const result: CreateShellResponse = await sendHttp(
@@ -58,20 +78,18 @@ export async function doCreateShell(params: WinRMParams): Promise<string> {
     params.auth
   );
 
-  if (result['s:Envelope']['s:Body'][0]['s:Fault']) {
-    throw new Error(
-      result['s:Envelope']['s:Body'][0]['s:Fault'][0]['s:Code'][0][
-        's:Subcode'
-      ][0]['s:Value'][0]
-    );
-  } else {
-    const shellId =
-      result['s:Envelope']['s:Body'][0]['rsp:Shell']![0]['rsp:ShellId'][0];
-    return shellId;
-  }
+  const shellId = extractShellId(result);
+  logger.debug('Shell created successfully', { shellId });
+
+  return shellId;
 }
 
 export async function doDeleteShell(params: WinRMParams): Promise<string> {
+  logger.debug('Deleting shell', {
+    shellId: params.shellId,
+    host: params.host,
+  });
+
   const req = constructDeleteShellRequest(params);
 
   const result: CreateShellResponse = await sendHttp(
@@ -82,13 +100,8 @@ export async function doDeleteShell(params: WinRMParams): Promise<string> {
     params.auth
   );
 
-  if (result['s:Envelope']['s:Body'][0]['s:Fault']) {
-    throw new Error(
-      result['s:Envelope']['s:Body'][0]['s:Fault'][0]['s:Code'][0][
-        's:Subcode'
-      ][0]['s:Value'][0]
-    );
-  } else {
-    return 'success';
-  }
+  checkForSoapFault(result);
+  logger.debug('Shell deleted successfully', { shellId: params.shellId });
+
+  return 'success';
 }

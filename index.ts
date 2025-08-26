@@ -1,5 +1,6 @@
 import * as Shell from './src/shell';
 import * as Command from './src/command';
+import { createLogger } from './src/utils/logger';
 
 export { Shell, Command };
 
@@ -12,6 +13,8 @@ export async function runCommand(
   usePowershell = false
 ): Promise<string> {
   try {
+    const logger = createLogger('runCommand');
+
     const auth =
       'Basic ' +
       Buffer.from(username + ':' + password, 'utf8').toString('base64');
@@ -23,7 +26,7 @@ export async function runCommand(
     };
 
     const shellId = await Shell.doCreateShell(params);
-
+    logger.debug('shellId', shellId);
     const shellParams = { ...params, shellId };
     const commandParams = { ...shellParams, command };
 
@@ -34,14 +37,16 @@ export async function runCommand(
       commandId = await Command.doExecuteCommand(commandParams);
     }
 
+    logger.debug('commandId', commandId);
     const receiveParams = { ...commandParams, commandId };
     const output = await Command.doReceiveOutput(receiveParams);
 
+    logger.debug('output', output);
     await Shell.doDeleteShell(shellParams);
 
     return output;
   } catch (error) {
-    console.log('error', error);
+    console.error('[runCommand] error', error);
     throw error;
   }
 }

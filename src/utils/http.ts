@@ -1,5 +1,8 @@
+import { XMLParser } from 'fast-xml-parser';
 import * as http from 'http';
-import { parseString } from 'xml2js';
+import { createLogger } from './logger';
+
+const logger = createLogger('http');
 
 export function sendHttp(
   data: string,
@@ -22,12 +25,19 @@ export function sendHttp(
     },
   };
 
+  logger.debug('Sending HTTP request', { host, port, path, method: 'POST' });
+
   return new Promise((resolve, reject) => {
     const req = http.request(options, (res) => {
+      logger.debug('HTTP response received', {
+        statusCode: res.statusCode,
+        statusMessage: res.statusMessage,
+      });
+
       if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
         reject(
           new Error(
-            'Failed to process the request, status Code: ' + res.statusCode
+            `Failed to process the request: ${res.statusCode} ${res.statusMessage || '(no message)'}`
           )
         );
         return;
@@ -38,18 +48,23 @@ export function sendHttp(
         dataBuffer += chunk;
       });
       res.on('end', () => {
-        parseString(dataBuffer, (err, result) => {
-          if (err) {
-            reject(new Error('Data Parsing error: ' + err.message));
-            return;
-          }
+        try {
+          const parser = new XMLParser({
+            ignoreAttributes: false,
+            attributesGroupName: '$',
+            textNodeName: '_',
+          });
+          const result = parser.parse(dataBuffer);
+          logger.debug('XML parsed successfully', result);
           resolve(result);
-        });
+        } catch (err) {
+          reject(new Error('Data Parsing error: ' + (err as Error).message));
+        }
       });
     });
 
     req.on('error', (err) => {
-      console.log('error', err);
+      logger.debug('HTTP request error', err);
       reject(err);
     });
 
