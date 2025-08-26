@@ -4,10 +4,10 @@
 [![Build Status](https://travis-ci.org/shide1989/winrm-client.svg?branch=master)](https://travis-ci.org/shide1989/winrm-client)
 [![Build Status](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_apis/build/status/shide1989.winrm-client?branchName=master)](https://dev.azure.com/SHONEJACOB/SHONEJACOB/_build/latest?definitionId=1?branchName=master)
 
-⚠️ This is an updated fork of the original [nodejs-winrm](https://github.com/shoneslab/nodejs-winrm) project that doesn't seem to be maintained anymore.
+⚠️ This is an updated fork of the original [nodejs-winrm](https://github.com/shoneslab/nodejs-winrm) project that doesn't seem to be maintained anymore. ⚠️
 
-winrm-client is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines both as single commands and in persistent REPL-style sessions.
-Please visit [Microsoft's WinRM site](http://msdn.microsoft.com/en-us/library/aa384426.aspx) for WINRM details.
+**winrm-client** is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands and persistent REPL-style sessions on target windows machines.
+Please visit [Microsoft's WinRM documentation](https://learn.microsoft.com/en-us/windows/win32/winrm/ws-management-protocol) for WINRM's protocol details.
 
 ### ⬆️ Migration from nodejs-winrm
 
