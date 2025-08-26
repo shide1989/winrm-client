@@ -88,6 +88,26 @@ The library exports the following main types:
 - `CommandParams` - Parameters for command execution
 - `SoapHeaderParams` - SOAP header configuration
 
+### Debug Logging
+
+To enable debug logging, set the `DEBUG` environment variable to `winrm` or `winrm:*`.
+
+Possible values for `namespace` are:
+
+- `*` // Enable debug logging for all namespaces
+- `http`
+- `shell`
+- `command`
+- `interactive`
+- `runCommand`
+- `runPowershell`
+
+To enable debug logging for all namespaces, set the `DEBUG` environment variable to `winrm:*`.
+
+```bash
+DEBUG=winrm:* node index.js
+```
+
 ## Examples
 
 ### Run a Single Command

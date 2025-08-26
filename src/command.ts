@@ -1,7 +1,15 @@
-import { parse } from 'js2xmlparser';
+import { XMLBuilder } from 'fast-xml-parser';
 import { getSoapHeaderRequest } from './base-request';
-import { sendHttp } from './http';
+import { sendHttp } from './utils/http';
 import { CommandParams, CommandResponse, ReceiveResponse } from './types';
+import { createLogger } from './utils/logger';
+import {
+  extractCommandId,
+  extractStreams,
+  extractValue,
+} from './utils/xml-parser';
+
+const logger = createLogger('command');
 
 function constructRunCommandRequest(params: CommandParams): string {
   const res = getSoapHeaderRequest({
@@ -13,15 +21,11 @@ function constructRunCommandRequest(params: CommandParams): string {
   res['s:Header']['wsman:OptionSet'].push({
     'wsman:Option': [
       {
-        '@': {
-          Name: 'WINRS_CONSOLEMODE_STDIN',
-        },
+        '@Name': 'WINRS_CONSOLEMODE_STDIN',
         '#': 'TRUE',
       },
       {
-        '@': {
-          Name: 'WINRS_SKIP_CMD_SHELL',
-        },
+        '@Name': 'WINRS_SKIP_CMD_SHELL',
         '#': 'FALSE',
       },
     ],
@@ -31,7 +35,15 @@ function constructRunCommandRequest(params: CommandParams): string {
       'rsp:Command': params.command,
     },
   };
-  return parse('s:Envelope', res);
+
+  const builder = new XMLBuilder({
+    attributeNamePrefix: '@',
+    textNodeName: '#',
+    ignoreAttributes: false,
+    format: true,
+    suppressBooleanAttributes: false,
+  });
+  return builder.build({ 's:Envelope': res });
 }
 
 function constructReceiveOutputRequest(params: CommandParams): string {
@@ -43,14 +55,20 @@ function constructReceiveOutputRequest(params: CommandParams): string {
   res['s:Body'] = {
     'rsp:Receive': {
       'rsp:DesiredStream': {
-        '@': {
-          CommandId: params.commandId!,
-        },
+        '@CommandId': params.commandId!,
         '#': 'stdout stderr',
       },
     },
   };
-  return parse('s:Envelope', res);
+
+  const builder = new XMLBuilder({
+    attributeNamePrefix: '@',
+    textNodeName: '#',
+    ignoreAttributes: false,
+    format: true,
+    suppressBooleanAttributes: false,
+  });
+  return builder.build({ 's:Envelope': res });
 }
 
 export async function doExecuteCommand(params: CommandParams): Promise<string> {
@@ -64,19 +82,7 @@ export async function doExecuteCommand(params: CommandParams): Promise<string> {
     params.auth
   );
 
-  if (result['s:Envelope']['s:Body'][0]['s:Fault']) {
-    throw new Error(
-      result['s:Envelope']['s:Body'][0]['s:Fault'][0]['s:Code'][0][
-        's:Subcode'
-      ][0]['s:Value'][0]
-    );
-  } else {
-    const commandId =
-      result['s:Envelope']['s:Body'][0]['rsp:CommandResponse']![0][
-        'rsp:CommandId'
-      ][0];
-    return commandId;
-  }
+  return extractCommandId(result);
 }
 
 function generatePowershellCommand(params: CommandParams): string {
@@ -116,38 +122,39 @@ export async function doReceiveOutput(params: CommandParams): Promise<string> {
     params.auth
   );
 
-  if (result['s:Envelope']['s:Body'][0]['s:Fault']) {
-    throw new Error(
-      result['s:Envelope']['s:Body'][0]['s:Fault'][0]['s:Code'][0][
-        's:Subcode'
-      ][0]['s:Value'][0]
-    );
-  } else {
-    let successOutput = '';
-    let failedOutput = '';
-    if (
-      result['s:Envelope']['s:Body'][0]['rsp:ReceiveResponse']![0]['rsp:Stream']
-    ) {
-      for (const stream of result['s:Envelope']['s:Body'][0][
-        'rsp:ReceiveResponse'
-      ]![0]['rsp:Stream']!) {
-        if (
-          stream['$'].Name === 'stdout' &&
-          !stream['$'].hasOwnProperty('End')
-        ) {
-          successOutput += Buffer.from(stream['_'], 'base64').toString('ascii');
-        }
-        if (
-          stream['$'].Name === 'stderr' &&
-          !stream['$'].hasOwnProperty('End')
-        ) {
-          failedOutput += Buffer.from(stream['_'], 'base64').toString('ascii');
-        }
-      }
-    }
-    if (successOutput) {
-      return successOutput.trim();
-    }
-    return failedOutput.trim();
+  const streams = extractStreams(result);
+
+  let successOutput = '';
+  let failedOutput = '';
+
+  const rawStreams = extractValue(
+    result,
+    's:Envelope.s:Body.rsp:ReceiveResponse.rsp:Stream'
+  );
+
+  if (Array.isArray(rawStreams)) {
+    rawStreams.forEach((stream, index) => {
+      logger.debug(`stream ${index}`, {
+        fullStream: JSON.stringify(stream, null, 2),
+        dollarSign: stream?.$,
+        attributes: Object.keys(stream?.$ || {}),
+      });
+    });
   }
+
+  for (const stream of streams) {
+    if (stream.name === 'stdout' && !stream.end) {
+      successOutput += Buffer.from(stream.content, 'base64').toString('ascii');
+    }
+    if (stream.name === 'stderr' && !stream.end) {
+      failedOutput += Buffer.from(stream.content, 'base64').toString('ascii');
+    }
+  }
+
+  logger.debug('outputs', { successOutput, failedOutput });
+
+  if (successOutput) {
+    return successOutput.trim();
+  }
+  return failedOutput.trim();
 }
