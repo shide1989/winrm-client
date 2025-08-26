@@ -163,3 +163,47 @@ export interface ReceiveResponse {
     }>;
   };
 }
+
+export interface SendInputParams extends CommandParams {
+  input: string;
+}
+
+export interface SendInputResponse {
+  's:Envelope': {
+    's:Body': Array<{
+      's:Fault'?: Array<{
+        's:Code': Array<{
+          's:Subcode': Array<{
+            's:Value': string[];
+          }>;
+        }>;
+      }>;
+      'rsp:SendResponse'?: Array<unknown>;
+    }>;
+  };
+}
+
+export interface StreamData {
+  name: string;
+  content: string;
+  end?: boolean;
+}
+
+export interface ReceiveOutputResult {
+  output: string;
+  stderr: string;
+  isComplete: boolean;
+  streams: StreamData[];
+}
+
+export interface InteractivePrompt {
+  pattern: RegExp;
+  response: string;
+  isSecure?: boolean;
+}
+
+export interface InteractiveCommandParams extends CommandParams {
+  prompts: InteractivePrompt[];
+  timeout?: number;
+  pollInterval?: number;
+}

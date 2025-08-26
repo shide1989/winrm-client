@@ -1,4 +1,4 @@
-import { CreateShellResponse } from '../types';
+import { CreateShellResponse, SendInputResponse } from '../types';
 
 // Dynamic XML value extractor
 export function extractValue(obj: unknown, path: string): unknown {
@@ -98,4 +98,11 @@ export function extractStreams(
     content: extractText(stream) || '',
     end: extractAttribute(stream, 'End') === 'true',
   }));
+}
+
+// Extract result from Send operation response
+export function extractSendResult(response: SendInputResponse): void {
+  checkForSoapFault(response);
+  // Send operation success is indicated by absence of fault
+  // No additional data needs to be extracted for successful sends
 }
