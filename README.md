@@ -6,7 +6,7 @@
 
 ⚠️ This is an updated fork of the original [nodejs-winrm](https://github.com/shoneslab/nodejs-winrm) project that doesn't seem to be maintained anymore.
 
-winrm-client is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines.
+winrm-client is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines both as single commands and in persistent REPL-style sessions.
 Please visit [Microsoft's WinRM site](http://msdn.microsoft.com/en-us/library/aa384426.aspx) for WINRM details.
 
 ### ⬆️ Migration from nodejs-winrm
@@ -87,6 +87,45 @@ The library exports the following main types:
 - `WinRMParams` - Configuration parameters for WinRM connections
 - `CommandParams` - Parameters for command execution
 - `SoapHeaderParams` - SOAP header configuration
+- `ReplSessionParams` - Configuration for REPL sessions
+- `ReplSessionState` - Internal session state tracking
+- `ReplCommandResult` - Enhanced command result with session info
+
+### REPL-Style Sessions
+
+The `WinRMRepl` class provides persistent shell sessions that maintain state between commands:
+
+```javascript
+const { WinRMRepl } = require('winrm-client');
+
+const repl = new WinRMRepl({
+  host: '192.168.1.100',
+  username: 'Administrator',
+  password: 'your-password',
+  port: 5985,
+});
+
+await repl.start();
+
+// Commands maintain session state
+await repl.executeCommand('cd C:\\');
+const result = await repl.executeCommand('dir');
+console.log(result.output);
+
+// PowerShell commands
+const psResult = await repl.executePowershell('Get-Date');
+console.log(psResult.output);
+
+// Clean up
+await repl.close();
+```
+
+Benefits of REPL sessions:
+
+- **State Persistence**: Working directory, environment variables, and session context are maintained
+- **Performance**: Reuses shell connection instead of creating new ones for each command
+- **Interactive**: Suitable for interactive command sequences and workflows
+- **Error Recovery**: Built-in session management and reconnection capabilities
 
 ## Examples
 
