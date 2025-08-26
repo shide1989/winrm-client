@@ -1,4 +1,4 @@
-import * as http from 'http';
+import { RequestOptions, request } from 'http';
 import { parseString } from 'xml2js';
 
 export function sendHttp(
@@ -9,7 +9,7 @@ export function sendHttp(
   auth: string
 ): Promise<any> {
   const xmlRequest = data;
-  const options: http.RequestOptions = {
+  const options: RequestOptions = {
     host: host,
     port: port,
     path: path,
@@ -23,12 +23,10 @@ export function sendHttp(
   };
 
   return new Promise((resolve, reject) => {
-    const req = http.request(options, (res) => {
+    const req = request(options, (res) => {
       if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
         reject(
-          new Error(
-            'Failed to process the request, status Code: ' + res.statusCode
-          )
+          `Failed to process the request: ${res.statusCode} ${res.statusMessage}`
         );
         return;
       }
@@ -40,7 +38,7 @@ export function sendHttp(
       res.on('end', () => {
         parseString(dataBuffer, (err, result) => {
           if (err) {
-            reject(new Error('Data Parsing error: ' + err.message));
+            reject(`Data Parsing error: ${err.message}`);
             return;
           }
           resolve(result);
@@ -49,7 +47,7 @@ export function sendHttp(
     });
 
     req.on('error', (err) => {
-      console.log('error', err);
+      console.error('[winrm] http error', err);
       reject(err);
     });
 

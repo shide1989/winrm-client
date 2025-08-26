@@ -1,7 +1,9 @@
 import * as Shell from './src/shell';
 import * as Command from './src/command';
+export { WinRMRepl } from './src/repl-session';
+export * from './src/types';
 
-export { Shell, Command };
+export default { Shell, Command };
 
 export async function runCommand(
   command: string,
@@ -41,7 +43,7 @@ export async function runCommand(
 
     return output;
   } catch (error) {
-    console.log('error', error);
+    console.error('[winrm] error', error);
     throw error;
   }
 }

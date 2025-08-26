@@ -144,3 +144,6 @@ export interface ReceiveResponse {
     }>;
   };
 }
+
+// Re-export REPL types for convenience
+export * from './repl-types';

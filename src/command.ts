@@ -3,6 +3,10 @@ import { getSoapHeaderRequest } from './base-request';
 import { sendHttp } from './http';
 import { CommandParams, CommandResponse, ReceiveResponse } from './types';
 
+/**
+ * Constructs a SOAP request for running a command in a Windows shell
+ * @returns XML string containing the SOAP request
+ */
 function constructRunCommandRequest(params: CommandParams): string {
   const res = getSoapHeaderRequest({
     action: 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command',
@@ -34,6 +38,10 @@ function constructRunCommandRequest(params: CommandParams): string {
   return parse('s:Envelope', res);
 }
 
+/**
+ * Constructs a SOAP request for receiving command output from a Windows shell
+ * @returns XML string containing the SOAP request
+ */
 function constructReceiveOutputRequest(params: CommandParams): string {
   const res = getSoapHeaderRequest({
     action: 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive',
@@ -53,6 +61,11 @@ function constructReceiveOutputRequest(params: CommandParams): string {
   return parse('s:Envelope', res);
 }
 
+/**
+ * Executes a command on a Windows remote machine via WinRM
+ * @returns Promise that resolves to the command ID for later output retrieval
+ * @throws Error if the command execution fails
+ */
 export async function doExecuteCommand(params: CommandParams): Promise<string> {
   const req = constructRunCommandRequest(params);
 
@@ -79,6 +92,10 @@ export async function doExecuteCommand(params: CommandParams): Promise<string> {
   }
 }
 
+/**
+ * Generates a PowerShell command string with proper arguments and escaping
+ * @returns Formatted PowerShell command string ready for execution
+ */
 function generatePowershellCommand(params: CommandParams): string {
   const args = [];
   args.unshift(
@@ -98,6 +115,11 @@ function generatePowershellCommand(params: CommandParams): string {
   return args.join(' ');
 }
 
+/**
+ * Executes a PowerShell command on a Windows remote machine via WinRM
+ * @returns Promise that resolves to the command ID for later output retrieval
+ * @throws Error if the PowerShell command execution fails
+ */
 export async function doExecutePowershell(
   params: CommandParams
 ): Promise<string> {
@@ -105,6 +127,11 @@ export async function doExecutePowershell(
   return doExecuteCommand(params);
 }
 
+/**
+ * Receives output from a previously executed command on a Windows remote machine
+ * @returns Promise that resolves to the command output (stdout or stderr)
+ * @throws Error if receiving output fails
+ */
 export async function doReceiveOutput(params: CommandParams): Promise<string> {
   const req = constructReceiveOutputRequest(params);
 
