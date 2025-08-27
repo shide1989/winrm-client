@@ -151,4 +151,85 @@ describe('interactive commands', () => {
 
     expect(result).toContain('Simple command without interaction');
   }, 45000);
+
+  it('should handle custom sync detector', async () => {
+    const prompts: InteractivePrompt[] = [
+      {
+        detector: (output: string) => output.toLowerCase().includes('confirm'),
+        response: 'N',
+      },
+    ];
+
+    const result = await runInteractivePowershell(
+      'Remove-Item -Path "C:\\temp\\nonexistent.txt" -Confirm',
+      JEST_WINRM_HOST,
+      JEST_WINRM_USER,
+      JEST_WINRM_PASS,
+      5985,
+      prompts,
+      executionTimeout
+    );
+
+    expect(result).toContain('Cannot find path');
+  }, 45000);
+
+  it('should handle custom async detector', async () => {
+    const prompts: InteractivePrompt[] = [
+      {
+        asyncDetector: async (output: string): Promise<boolean> => {
+          // Simulate async processing
+          await new Promise(resolve => setTimeout(resolve, 10));
+          return output.toLowerCase().includes('confirm');
+        },
+        response: 'N',
+      },
+    ];
+
+    const result = await runInteractivePowershell(
+      'Remove-Item -Path "C:\\temp\\nonexistent.txt" -Confirm',
+      JEST_WINRM_HOST,
+      JEST_WINRM_USER,
+      JEST_WINRM_PASS,
+      5985,
+      prompts,
+      executionTimeout
+    );
+
+    expect(result).toContain('Cannot find path');
+  }, 45000);
+
+  it('should handle mixed detection methods in one session', async () => {
+    const prompts: InteractivePrompt[] = [
+      {
+        pattern: /Enter your name:/i,
+        response: 'TestUser',
+      },
+      {
+        detector: (output: string) => output.includes('Enter your age:'),
+        response: '25',
+      },
+      {
+        asyncDetector: async (output: string): Promise<boolean> => {
+          await new Promise(resolve => setTimeout(resolve, 5));
+          return output.includes('Confirm');
+        },
+        response: 'N',
+      },
+    ];
+
+    const command =
+      'Write-Host \'Enter your name:\' -NoNewline; $name = Read-Host; Write-Host \'Enter your age:\' -NoNewline; $age = Read-Host; Write-Host \'Confirm (Y/N):\' -NoNewline; $confirm = Read-Host; Write-Host \"Name: \" $name \" Age: \" $age \" Confirmed: \" $confirm\"';
+
+    const result = await runInteractivePowershell(
+      command,
+      JEST_WINRM_HOST,
+      JEST_WINRM_USER,
+      JEST_WINRM_PASS,
+      5985,
+      prompts,
+      executionTimeout
+    );
+
+    expect(result).toContain('Name: TestUser Age: 25 Confirmed: N');
+  }, 45000);
 });
