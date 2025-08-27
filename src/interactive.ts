@@ -44,6 +44,11 @@ export async function executeInteractiveCommand(
         break;
       }
 
+      if (result.stderr) {
+        logger.debug('Command failed');
+        break;
+      }
+
       // Check for prompt patterns in the most recent output
       const detectedPrompt = detectPromptPattern(result.output, params.prompts);
       if (detectedPrompt) {
@@ -55,6 +60,7 @@ export async function executeInteractiveCommand(
           logger.debug('Detected prompt pattern, sending response', {
             pattern: detectedPrompt.pattern.source,
             isSecure: detectedPrompt.isSecure,
+            response: detectedPrompt.response,
           });
 
           const response = detectedPrompt.response + '\n';

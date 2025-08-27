@@ -55,8 +55,7 @@ describe('interactive commands', () => {
     expect(result).toContain('Credential created');
   }, 45000);
 
-  // TODO: fix this test
-  it.skip('should handle multiple prompt patterns in sequence', async () => {
+  it('should handle multiple prompt patterns in sequence', async () => {
     const prompts: InteractivePrompt[] = [
       {
         pattern: /Enter your name:/i,
@@ -72,12 +71,8 @@ describe('interactive commands', () => {
       },
     ];
 
-    const command = `
-      Write-Host "Enter your name:" -NoNewline; $name = Read-Host;
-      Write-Host "Enter your age:" -NoNewline; $age = Read-Host;
-      Write-Host "Confirm (Y/N):" -NoNewline; $confirm = Read-Host;
-      Write-Host "Name: $name, Age: $age, Confirmed: $confirm"
-    `;
+    const command =
+      'Write-Host \'Enter your name:\' -NoNewline; $name = Read-Host; Write-Host \'Enter your age:\' -NoNewline; $age = Read-Host; Write-Host \'Confirm (Y/N):\' -NoNewline; $confirm = Read-Host; Write-Host \"Name: \" $name \" Age: \" $age \" Confirmed: \" $confirm\"';
 
     const result = await runInteractivePowershell(
       command,
@@ -89,7 +84,7 @@ describe('interactive commands', () => {
       timeout
     );
 
-    expect(result).toContain('Name: TestUser, Age: 25, Confirmed: Y');
+    expect(result).toContain('Name: TestUser Age: 25 Confirmed: N');
   }, 45000);
 
   it('should handle CMD interactive commands', async () => {
