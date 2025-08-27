@@ -11,7 +11,7 @@ export interface WinRMParams {
 export interface CommandParams extends WinRMParams {
   command?: string;
   commandId?: string;
-  timeout?: number;
+  httpTimeout?: number;
 }
 
 export interface SoapHeaderParams {
@@ -182,6 +182,6 @@ export interface InteractivePrompt {
 
 export interface InteractiveCommandParams extends CommandParams {
   prompts: InteractivePrompt[];
-  timeout?: number;
+  executionTimeout?: number;
   pollInterval?: number;
 }

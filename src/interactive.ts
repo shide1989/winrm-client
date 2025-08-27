@@ -12,7 +12,7 @@ const logger = createLogger('interactive');
 export async function executeInteractiveCommand(
   params: InteractiveCommandParams
 ): Promise<string> {
-  const timeout = params.timeout || 60000; // 60 seconds default
+  const executionTimeout = params.executionTimeout || 60000; // 60 seconds default
   const pollInterval = params.pollInterval || 500; // 500ms default
 
   let accumulatedOutput = '';
@@ -21,13 +21,13 @@ export async function executeInteractiveCommand(
   const usedPrompts = new Set<string>();
 
   logger.debug('Starting interactive command execution', {
-    timeout,
+    executionTimeout,
     pollInterval,
     promptCount: params.prompts.length,
   });
 
   try {
-    const generator = pollCommandWithTimeout(params, timeout, pollInterval);
+    const generator = pollCommandWithTimeout(params, executionTimeout, pollInterval);
 
     for await (const result of generator) {
       accumulatedOutput += result.output;
@@ -41,11 +41,6 @@ export async function executeInteractiveCommand(
 
       if (result.isComplete) {
         logger.debug('Command completed');
-        break;
-      }
-
-      if (result.stderr) {
-        logger.debug('Command failed');
         break;
       }
 
@@ -71,9 +66,9 @@ export async function executeInteractiveCommand(
         }
       }
 
-      // Check timeout
-      if (Date.now() - startTime > timeout) {
-        throw new Error(`Interactive command timed out after ${timeout}ms`);
+      // Check execution timeout
+      if (Date.now() - startTime > executionTimeout) {
+        throw new Error(`Interactive command timed out after ${executionTimeout}ms`);
       }
     }
   } catch (error) {
@@ -105,13 +100,13 @@ export function detectPromptPattern(
 
 export async function* pollCommandWithTimeout(
   params: CommandParams,
-  timeout: number,
+  executionTimeout: number,
   pollInterval: number
 ): AsyncGenerator<ReceiveOutputResult> {
   const startTime = Date.now();
   let currentInterval = pollInterval;
 
-  while (Date.now() - startTime < timeout) {
+  while (Date.now() - startTime < executionTimeout) {
     try {
       const result = await doReceiveOutputNonBlocking(params);
 
@@ -135,5 +130,5 @@ export async function* pollCommandWithTimeout(
     }
   }
 
-  throw new Error(`Polling timed out after ${timeout}ms`);
+  throw new Error(`Polling timed out after ${executionTimeout}ms`);
 }

@@ -9,7 +9,7 @@ if (!JEST_WINRM_PASS || !JEST_WINRM_USER || !JEST_WINRM_HOST) {
 jest.setTimeout(60_000);
 
 describe('interactive commands', () => {
-  const timeout = 30000; // 30 second timeout for tests
+  const executionTimeout = 30000; // 30 second execution timeout for tests
 
   it('should handle PowerShell prompt for confirmation', async () => {
     const prompts: InteractivePrompt[] = [
@@ -26,7 +26,7 @@ describe('interactive commands', () => {
       JEST_WINRM_PASS,
       5985,
       prompts,
-      timeout
+      executionTimeout
     );
 
     expect(result).toContain('Cannot find path');
@@ -49,7 +49,7 @@ describe('interactive commands', () => {
       JEST_WINRM_PASS,
       5985,
       prompts,
-      timeout
+      executionTimeout
     );
 
     expect(result).toContain('Credential created');
@@ -81,7 +81,7 @@ describe('interactive commands', () => {
       JEST_WINRM_PASS,
       5985,
       prompts,
-      timeout
+      executionTimeout
     );
 
     expect(result).toContain('Name: TestUser Age: 25 Confirmed: N');
@@ -102,7 +102,8 @@ describe('interactive commands', () => {
       JEST_WINRM_PASS,
       5985,
       prompts,
-      timeout
+      executionTimeout,
+      10000
     );
 
     expect(result).toContain('Press any key to continue');
@@ -124,7 +125,8 @@ describe('interactive commands', () => {
         JEST_WINRM_PASS,
         5985,
         prompts,
-        5000 // 5 second timeout for quicker test
+        5000, // 5 second timeout for quicker test
+        6000 // 6 second http timeout for quicker test
       )
     ).rejects.toThrow('timed out');
   }, 10000);
@@ -144,7 +146,7 @@ describe('interactive commands', () => {
       JEST_WINRM_PASS,
       5985,
       prompts,
-      timeout
+      executionTimeout
     );
 
     expect(result).toContain('Simple command without interaction');

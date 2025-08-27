@@ -116,7 +116,8 @@ export async function doExecuteCommand(params: CommandParams): Promise<string> {
     params.host,
     params.port,
     params.path,
-    params.auth
+    params.auth,
+    params.httpTimeout
   );
 
   return extractCommandId(result);
@@ -130,7 +131,8 @@ export async function doSendInput(params: SendInputParams): Promise<void> {
     params.host,
     params.port,
     params.path,
-    params.auth
+    params.auth,
+    params.httpTimeout
   );
 
   extractSendResult(result);
@@ -177,7 +179,8 @@ export async function doReceiveOutput(params: CommandParams): Promise<string> {
     params.host,
     params.port,
     params.path,
-    params.auth
+    params.auth,
+    params.httpTimeout
   );
 
   const streams = extractStreams(result);
@@ -232,7 +235,7 @@ export async function doReceiveOutputNonBlocking(
     params.port,
     params.path,
     params.auth,
-    params.timeout
+    params.httpTimeout
   );
 
   const streams = extractStreams(result);

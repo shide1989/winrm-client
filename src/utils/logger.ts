@@ -33,7 +33,7 @@ function formatArgs(args: unknown[]): unknown[] {
         ...Object.getOwnPropertyNames(arg).reduce(
           (acc, key) => {
             if (key !== 'name' && key !== 'message' && key !== 'stack') {
-              acc[key] = (arg as any)[key];
+              acc[key] = (arg as unknown as Record<string, unknown>)[key];
             }
             return acc;
           },
