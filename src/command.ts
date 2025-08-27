@@ -222,12 +222,17 @@ export async function doReceiveOutputNonBlocking(
 ): Promise<ReceiveOutputResult> {
   const req = constructReceiveOutputRequest(params);
 
+  logger.debug('doReceiveOutputNonBlocking', {
+    req,
+    params,
+  });
   const result: ReceiveResponse = await sendHttp(
     req,
     params.host,
     params.port,
     params.path,
-    params.auth
+    params.auth,
+    params.timeout
   );
 
   const streams = extractStreams(result);

@@ -1,16 +1,18 @@
 import { XMLParser } from 'fast-xml-parser';
 import * as http from 'http';
 import { createLogger } from './logger';
+import { SoapEnvelope } from '../types';
 
 const logger = createLogger('http');
 
-export function sendHttp(
+export function sendHttp<T extends SoapEnvelope>(
   data: string,
   host: string,
   port: number,
   path: string,
-  auth: string
-): Promise<any> {
+  auth: string,
+  timeout?: number
+): Promise<T> {
   const xmlRequest = data;
   const options: http.RequestOptions = {
     host: host,
@@ -27,7 +29,8 @@ export function sendHttp(
 
   logger.debug('Sending HTTP request', { host, port, path, method: 'POST' });
 
-  return new Promise((resolve, reject) => {
+  const promise = new Promise<T>((resolve, reject) => {
+    let timeoutId: NodeJS.Timeout;
     const req = http.request(options, (res) => {
       logger.debug('HTTP response received', {
         statusCode: res.statusCode,
@@ -48,6 +51,9 @@ export function sendHttp(
         dataBuffer += chunk;
       });
       res.on('end', () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         try {
           const parser = new XMLParser({
             ignoreAttributes: false,
@@ -72,5 +78,14 @@ export function sendHttp(
       req.write(xmlRequest);
     }
     req.end();
+
+    if (timeout) {
+      timeoutId = setTimeout(() => {
+        logger.debug('Request timed out');
+        req.destroy(new Error('Request timed out'));
+      }, timeout);
+    }
   });
+
+  return promise;
 }

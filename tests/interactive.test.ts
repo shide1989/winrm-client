@@ -11,7 +11,7 @@ jest.setTimeout(60_000);
 describe('interactive commands', () => {
   const timeout = 30000; // 30 second timeout for tests
 
-  it.skip('should handle PowerShell prompt for confirmation', async () => {
+  it('should handle PowerShell prompt for confirmation', async () => {
     const prompts: InteractivePrompt[] = [
       {
         pattern: /\[Y\] Yes\s+\[N\] No.*\(default is "Y"\):/i,
@@ -56,47 +56,43 @@ describe('interactive commands', () => {
   }, 45000);
 
   // TODO: fix this test
-  it.failing(
-    'should handle multiple prompt patterns in sequence',
-    async () => {
-      const prompts: InteractivePrompt[] = [
-        {
-          pattern: /Enter your name:/i,
-          response: 'TestUser',
-        },
-        {
-          pattern: /Enter your age:/i,
-          response: '25',
-        },
-        {
-          pattern: /Confirm \(Y\/N\):/i,
-          response: 'N',
-        },
-      ];
+  it.skip('should handle multiple prompt patterns in sequence', async () => {
+    const prompts: InteractivePrompt[] = [
+      {
+        pattern: /Enter your name:/i,
+        response: 'TestUser',
+      },
+      {
+        pattern: /Enter your age:/i,
+        response: '25',
+      },
+      {
+        pattern: /Confirm \(Y\/N\):/i,
+        response: 'N',
+      },
+    ];
 
-      const command = `
+    const command = `
       Write-Host "Enter your name:" -NoNewline; $name = Read-Host;
       Write-Host "Enter your age:" -NoNewline; $age = Read-Host;
       Write-Host "Confirm (Y/N):" -NoNewline; $confirm = Read-Host;
       Write-Host "Name: $name, Age: $age, Confirmed: $confirm"
     `;
 
-      const result = await runInteractivePowershell(
-        command,
-        JEST_WINRM_HOST,
-        JEST_WINRM_USER,
-        JEST_WINRM_PASS,
-        5985,
-        prompts,
-        timeout
-      );
+    const result = await runInteractivePowershell(
+      command,
+      JEST_WINRM_HOST,
+      JEST_WINRM_USER,
+      JEST_WINRM_PASS,
+      5985,
+      prompts,
+      timeout
+    );
 
-      expect(result).toContain('Name: TestUser, Age: 25, Confirmed: Y');
-    },
-    45000
-  );
+    expect(result).toContain('Name: TestUser, Age: 25, Confirmed: Y');
+  }, 45000);
 
-  it.skip('should handle CMD interactive commands', async () => {
+  it('should handle CMD interactive commands', async () => {
     const prompts: InteractivePrompt[] = [
       {
         pattern: /Press any key to continue/i,
@@ -117,33 +113,28 @@ describe('interactive commands', () => {
     expect(result).toContain('Press any key to continue');
   }, 45000);
 
-  // TODO: fix this test
-  it.failing(
-    'should timeout when no matching prompt is found',
-    async () => {
-      const prompts: InteractivePrompt[] = [
-        {
-          pattern: /This pattern will never match/i,
-          response: 'response',
-        },
-      ];
+  it('should timeout when no matching prompt is found', async () => {
+    const prompts: InteractivePrompt[] = [
+      {
+        pattern: /This pattern will never match/i,
+        response: 'response',
+      },
+    ];
 
-      await expect(
-        runInteractivePowershell(
-          'Read-Host "Enter something"',
-          JEST_WINRM_HOST,
-          JEST_WINRM_USER,
-          JEST_WINRM_PASS,
-          5985,
-          prompts,
-          5000 // 5 second timeout for quicker test
-        )
-      ).rejects.toThrow('timed out');
-    },
-    10000
-  );
+    await expect(
+      runInteractivePowershell(
+        'Read-Host "Enter something"',
+        JEST_WINRM_HOST,
+        JEST_WINRM_USER,
+        JEST_WINRM_PASS,
+        5985,
+        prompts,
+        5000 // 5 second timeout for quicker test
+      )
+    ).rejects.toThrow('timed out');
+  }, 10000);
 
-  it.skip('should handle commands that complete without interaction', async () => {
+  it('should handle commands that complete without interaction', async () => {
     const prompts: InteractivePrompt[] = [
       {
         pattern: /This won't be needed/i,

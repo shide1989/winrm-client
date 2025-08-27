@@ -11,6 +11,7 @@ export interface WinRMParams {
 export interface CommandParams extends WinRMParams {
   command?: string;
   commandId?: string;
+  timeout?: number;
 }
 
 export interface SoapHeaderParams {
@@ -72,116 +73,93 @@ export interface SoapHeader {
   's:Body'?: unknown; // Flexible body content for different request types
 }
 
-export interface CreateShellResponse {
-  's:Envelope': {
-    's:Header': unknown;
-    's:Body': {
-      's:Fault'?: {
-        's:Code': {
-          's:Subcode': {
-            's:Value': string;
-          };
-        };
-      };
-      'x:ResourceCreated'?: {
-        'a:Address': string;
-        'a:ReferenceParameters': {
-          'w:ResourceURI': string;
-          'w:SelectorSet': {
-            'w:Selector': {
-              _: string;
-              $: {
-                '@_Name': string;
-              };
-            };
-          };
-        };
-      };
-      'rsp:Shell'?: {
-        'rsp:ShellId': string;
-        'rsp:ResourceUri': string;
-        'rsp:Owner': string;
-        'rsp:ClientIP': string;
-        'rsp:IdleTimeOut': string;
-        'rsp:InputStreams': string;
-        'rsp:OutputStreams': string;
-        'rsp:ShellRunTime': string;
-        'rsp:ShellInactivity': string;
-        $: {
-          '@_xmlns:rsp': string;
-        };
-      };
-    };
-    $: {
-      '@_xml:lang': string;
-      '@_xmlns:s': string;
-      '@_xmlns:a': string;
-      '@_xmlns:x': string;
-      '@_xmlns:w': string;
-      '@_xmlns:rsp': string;
-      '@_xmlns:p': string;
-    };
-  };
-}
-
-export interface CommandResponse {
-  's:Envelope': {
-    's:Body': Array<{
-      's:Fault'?: Array<{
-        's:Code': Array<{
-          's:Subcode': Array<{
-            's:Value': string[];
-          }>;
-        }>;
-      }>;
-      'rsp:CommandResponse'?: Array<{
-        'rsp:CommandId': string[];
-      }>;
+// Base interfaces for common SOAP response structures
+export interface SoapFault {
+  's:Code': Array<{
+    's:Subcode': Array<{
+      's:Value': string[];
     }>;
+  }>;
+}
+
+export interface SoapEnvelope<T = unknown> {
+  's:Envelope': {
+    's:Body': Array<
+      {
+        's:Fault'?: Array<SoapFault>;
+      } & T
+    >;
   };
 }
 
-export interface ReceiveResponse {
-  's:Envelope': {
-    's:Body': Array<{
-      's:Fault'?: Array<{
-        's:Code': Array<{
-          's:Subcode': Array<{
-            's:Value': string[];
-          }>;
-        }>;
-      }>;
-      'rsp:ReceiveResponse'?: Array<{
-        'rsp:Stream'?: Array<{
-          $: {
-            Name: string;
-            End?: string;
-          };
+export interface CreateShellResponseBody {
+  'x:ResourceCreated'?: {
+    'a:Address': string;
+    'a:ReferenceParameters': {
+      'w:ResourceURI': string;
+      'w:SelectorSet': {
+        'w:Selector': {
           _: string;
-        }>;
-      }>;
-    }>;
+          $: {
+            '@_Name': string;
+          };
+        };
+      };
+    };
+  };
+  'rsp:Shell'?: {
+    'rsp:ShellId': string;
+    'rsp:ResourceUri': string;
+    'rsp:Owner': string;
+    'rsp:ClientIP': string;
+    'rsp:IdleTimeOut': string;
+    'rsp:InputStreams': string;
+    'rsp:OutputStreams': string;
+    'rsp:ShellRunTime': string;
+    'rsp:ShellInactivity': string;
+    $: {
+      '@_xmlns:rsp': string;
+    };
   };
 }
+
+export interface CreateShellResponse
+  extends SoapEnvelope<CreateShellResponseBody> {}
+
+// Specific response body types
+export interface CommandResponseBody {
+  'rsp:CommandResponse'?: Array<{
+    'rsp:CommandId': string[];
+  }>;
+}
+
+export interface ReceiveResponseBody {
+  'rsp:ReceiveResponse'?: Array<{
+    'rsp:Stream'?: Array<{
+      $: {
+        Name: string;
+        End?: string;
+      };
+      _: string;
+    }>;
+  }>;
+}
+
+export interface SendInputResponseBody {
+  'rsp:SendResponse'?: Array<unknown>;
+}
+
+// Factorized response interfaces
+export interface CommandResponse extends SoapEnvelope<CommandResponseBody> {}
+
+export interface ReceiveResponse extends SoapEnvelope<ReceiveResponseBody> {}
 
 export interface SendInputParams extends CommandParams {
   input: string;
 }
 
-export interface SendInputResponse {
-  's:Envelope': {
-    's:Body': Array<{
-      's:Fault'?: Array<{
-        's:Code': Array<{
-          's:Subcode': Array<{
-            's:Value': string[];
-          }>;
-        }>;
-      }>;
-      'rsp:SendResponse'?: Array<unknown>;
-    }>;
-  };
-}
+export interface SendInputResponse
+  extends SoapEnvelope<SendInputResponseBody> {}
 
 export interface StreamData {
   name: string;

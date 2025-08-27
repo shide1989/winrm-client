@@ -121,8 +121,8 @@ export async function runInteractivePowershell(
   password: string,
   port: number,
   prompts: InteractivePrompt[],
-  timeout?: number,
-  pollInterval?: number
+  timeout?: number, // Milliseconds
+  pollInterval?: number // Milliseconds
 ): Promise<string> {
   try {
     const logger = createLogger('runInteractivePowershell');
