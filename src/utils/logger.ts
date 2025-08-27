@@ -24,9 +24,25 @@ function isDebugEnabled(namespace: string): boolean {
  * Format arguments for logging output
  */
 function formatArgs(args: unknown[]): unknown[] {
-  return args.map((arg) =>
-    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
-  );
+  return args.map((arg) => {
+    if (arg instanceof Error) {
+      return {
+        name: arg.name,
+        message: arg.message,
+        stack: arg.stack,
+        ...Object.getOwnPropertyNames(arg).reduce(
+          (acc, key) => {
+            if (key !== 'name' && key !== 'message' && key !== 'stack') {
+              acc[key] = (arg as unknown as Record<string, unknown>)[key];
+            }
+            return acc;
+          },
+          {} as Record<string, unknown>
+        ),
+      };
+    }
+    return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg;
+  });
 }
 
 /**
