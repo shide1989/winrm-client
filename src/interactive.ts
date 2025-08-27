@@ -27,7 +27,11 @@ export async function executeInteractiveCommand(
   });
 
   try {
-    const generator = pollCommandWithTimeout(params, executionTimeout, pollInterval);
+    const generator = pollCommandWithTimeout(
+      params,
+      executionTimeout,
+      pollInterval
+    );
 
     for await (const result of generator) {
       accumulatedOutput += result.output;
@@ -68,7 +72,9 @@ export async function executeInteractiveCommand(
 
       // Check execution timeout
       if (Date.now() - startTime > executionTimeout) {
-        throw new Error(`Interactive command timed out after ${executionTimeout}ms`);
+        throw new Error(
+          `Interactive command timed out after ${executionTimeout}ms`
+        );
       }
     }
   } catch (error) {
