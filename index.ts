@@ -10,6 +10,16 @@ import {
 
 export { Shell, Command, executeInteractiveCommand };
 
+/**
+ * Execute a command on a remote Windows machine via WinRM
+ * @param command - Command to execute
+ * @param host - Target host address
+ * @param username - Username for authentication
+ * @param password - Password for authentication
+ * @param port - WinRM port (typically 5985 for HTTP)
+ * @param usePowershell - Whether to use PowerShell (default: false)
+ * @returns Command output
+ */
 export async function runCommand(
   command: string,
   host: string,
@@ -58,6 +68,15 @@ export async function runCommand(
   }
 }
 
+/**
+ * Execute a PowerShell command on a remote Windows machine via WinRM
+ * @param command - PowerShell command to execute
+ * @param host - Target host address
+ * @param username - Username for authentication
+ * @param password - Password for authentication
+ * @param port - WinRM port (typically 5985 for HTTP)
+ * @returns Command output
+ */
 export async function runPowershell(
   command: string,
   host: string,
@@ -68,6 +87,19 @@ export async function runPowershell(
   return runCommand(command, host, username, password, port, true);
 }
 
+/**
+ * Execute an interactive command that responds to prompts via WinRM
+ * @param command - Command to execute
+ * @param host - Target host address
+ * @param username - Username for authentication
+ * @param password - Password for authentication
+ * @param port - WinRM port (typically 5985 for HTTP)
+ * @param prompts - Array of prompt patterns and responses
+ * @param executionTimeout - Overall command timeout in ms (default: 60000)
+ * @param httpTimeout - HTTP request timeout in ms
+ * @param pollInterval - Output polling interval in ms (default: 500)
+ * @returns Command output
+ */
 export async function runInteractiveCommand(
   command: string,
   host: string,
@@ -119,6 +151,19 @@ export async function runInteractiveCommand(
   }
 }
 
+/**
+ * Execute an interactive PowerShell command that responds to prompts via WinRM
+ * @param command - PowerShell command to execute
+ * @param host - Target host address
+ * @param username - Username for authentication
+ * @param password - Password for authentication
+ * @param port - WinRM port (typically 5985 for HTTP)
+ * @param prompts - Array of prompt patterns and responses
+ * @param executionTimeout - Overall command timeout in ms (default: 60000)
+ * @param httpTimeout - HTTP request timeout in ms
+ * @param pollInterval - Output polling interval in ms (default: 500)
+ * @returns Command output
+ */
 export async function runInteractivePowershell(
   command: string,
   host: string,
@@ -126,9 +171,9 @@ export async function runInteractivePowershell(
   password: string,
   port: number,
   prompts: InteractivePrompt[],
-  executionTimeout?: number, // Milliseconds
+  executionTimeout?: number,
   httpTimeout?: number,
-  pollInterval?: number // Milliseconds
+  pollInterval?: number
 ): Promise<string> {
   let shellParams: CommandParams | null = null;
   try {
