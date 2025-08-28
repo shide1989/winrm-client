@@ -178,7 +178,7 @@ describe('interactive commands', () => {
       {
         asyncDetector: async (output: string): Promise<boolean> => {
           // Simulate async processing
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise((resolve) => setTimeout(resolve, 10));
           return output.toLowerCase().includes('confirm');
         },
         response: 'N',
@@ -210,7 +210,7 @@ describe('interactive commands', () => {
       },
       {
         asyncDetector: async (output: string): Promise<boolean> => {
-          await new Promise(resolve => setTimeout(resolve, 5));
+          await new Promise((resolve) => setTimeout(resolve, 5));
           return output.includes('Confirm');
         },
         response: 'N',

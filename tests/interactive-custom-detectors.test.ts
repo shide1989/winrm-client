@@ -6,12 +6,16 @@ describe('Custom Detector Tests', () => {
     it('should use sync detector when provided', async () => {
       const prompts: InteractivePrompt[] = [
         {
-          detector: (output: string): boolean => output.includes('custom-sync-trigger'),
+          detector: (output: string): boolean =>
+            output.includes('custom-sync-trigger'),
           response: 'sync-response',
         },
       ];
 
-      const result = await detectPromptPattern('some custom-sync-trigger text', prompts);
+      const result = await detectPromptPattern(
+        'some custom-sync-trigger text',
+        prompts
+      );
       expect(result).not.toBeNull();
       expect(result?.response).toBe('sync-response');
     });
@@ -20,14 +24,17 @@ describe('Custom Detector Tests', () => {
       const prompts: InteractivePrompt[] = [
         {
           asyncDetector: async (output: string): Promise<boolean> => {
-            await new Promise(resolve => setTimeout(resolve, 10)); // Simulate async work
+            await new Promise((resolve) => setTimeout(resolve, 10)); // Simulate async work
             return output.includes('async-trigger');
           },
           response: 'async-response',
         },
       ];
 
-      const result = await detectPromptPattern('some async-trigger text', prompts);
+      const result = await detectPromptPattern(
+        'some async-trigger text',
+        prompts
+      );
       expect(result).not.toBeNull();
       expect(result?.response).toBe('async-response');
     });
@@ -36,7 +43,8 @@ describe('Custom Detector Tests', () => {
       const prompts: InteractivePrompt[] = [
         {
           detector: (): boolean => true, // Would always match
-          asyncDetector: async (output: string): Promise<boolean> => output.includes('priority-test'),
+          asyncDetector: async (output: string): Promise<boolean> =>
+            output.includes('priority-test'),
           response: 'async-priority',
         },
       ];
@@ -54,7 +62,8 @@ describe('Custom Detector Tests', () => {
       const prompts: InteractivePrompt[] = [
         {
           pattern: /.*/, // Would always match
-          detector: (output: string): boolean => output.includes('sync-priority'),
+          detector: (output: string): boolean =>
+            output.includes('sync-priority'),
           response: 'sync-wins',
         },
       ];
@@ -146,11 +155,13 @@ describe('Custom Detector Tests', () => {
           response: 'pattern-response',
         },
         {
-          detector: (output: string): boolean => output.includes('blocking-call'),
+          detector: (output: string): boolean =>
+            output.includes('blocking-call'),
           response: 'sync-response',
         },
         {
-          asyncDetector: async (output: string): Promise<boolean> => output.includes('promise-await'),
+          asyncDetector: async (output: string): Promise<boolean> =>
+            output.includes('promise-await'),
           response: 'async-response',
         },
       ];
@@ -204,9 +215,12 @@ describe('Custom Detector Tests', () => {
         {
           asyncDetector: async (output: string): Promise<boolean> => {
             // Simulate complex async logic (e.g., API call, file read, etc.)
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
             const lines = output.split('\n');
-            return lines.some(line => line.trim().startsWith('>>') && line.includes('continue'));
+            return lines.some(
+              (line) =>
+                line.trim().startsWith('>>') && line.includes('continue')
+            );
           },
           response: 'yes',
         },
@@ -243,7 +257,10 @@ More output
         },
       ];
 
-      const result = await detectPromptPattern(null as unknown as string, prompts);
+      const result = await detectPromptPattern(
+        null as unknown as string,
+        prompts
+      );
       expect(result).toBeNull();
     });
   });

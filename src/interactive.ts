@@ -49,18 +49,24 @@ export async function executeInteractiveCommand(
       }
 
       // Check for prompt patterns in the most recent output
-      const detectedPrompt = await detectPromptPattern(result.output, params.prompts);
+      const detectedPrompt = await detectPromptPattern(
+        result.output,
+        params.prompts
+      );
       if (detectedPrompt) {
         // Create a unique key for the prompt (handle cases where pattern might be undefined)
-        const patternSource = detectedPrompt.pattern?.source || 'custom-detector';
+        const patternSource =
+          detectedPrompt.pattern?.source || 'custom-detector';
         const promptKey = `${patternSource}:${detectedPrompt.response}`;
 
         if (!usedPrompts.has(promptKey)) {
           usedPrompts.add(promptKey);
 
-          const detectionMethod = detectedPrompt.asyncDetector ? 'async-detector' 
-            : detectedPrompt.detector ? 'sync-detector' 
-            : 'pattern';
+          const detectionMethod = detectedPrompt.asyncDetector
+            ? 'async-detector'
+            : detectedPrompt.detector
+              ? 'sync-detector'
+              : 'pattern';
 
           logger.debug('Detected prompt, sending response', {
             detectionMethod,
@@ -146,7 +152,7 @@ export async function detectPromptPattern(
         error: error instanceof Error ? error.message : String(error),
         output: prompt.isSecure ? '[HIDDEN]' : output,
       });
-      
+
       // Try fallback to pattern if available
       if (prompt.pattern) {
         try {
@@ -159,7 +165,10 @@ export async function detectPromptPattern(
           }
         } catch (patternError) {
           logger.debug('Pattern fallback also failed', {
-            error: patternError instanceof Error ? patternError.message : String(patternError),
+            error:
+              patternError instanceof Error
+                ? patternError.message
+                : String(patternError),
           });
         }
       }

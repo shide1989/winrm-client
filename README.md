@@ -34,6 +34,7 @@ yarn add winrm-client
 ```
 
 ## Features
+
 - 🔁 Supports both CommonJS and ES6 modules.
 - 🏗️ Has types for all exported functions and interfaces.
 - 🔁 Supports interactive commands that can automatically respond to prompts using three types of detection methods: (see [Interactive Commands](#interactive-commands))
@@ -183,7 +184,7 @@ executeCommand();
 WinRM Client supports interactive commands that can automatically respond to prompts using three types of detection methods:
 
 1. **Regex Patterns** (traditional method)
-2. **Custom Sync Detectors** (new)  
+2. **Custom Sync Detectors** (new)
 3. **Custom Async Detectors** (new)
 
 ### Basic Interactive Command
@@ -206,7 +207,7 @@ const prompts = [
 const result = await winrm.runInteractivePowershell(
   'my-interactive-script.ps1',
   'host',
-  'username', 
+  'username',
   'password',
   5985,
   prompts,
@@ -224,9 +225,10 @@ const prompts = [
     detector: (output) => {
       // Custom logic for detecting prompts
       const lines = output.split('\n');
-      return lines.some(line => 
-        line.toLowerCase().includes('password') ||
-        line.toLowerCase().includes('passphrase')
+      return lines.some(
+        (line) =>
+          line.toLowerCase().includes('password') ||
+          line.toLowerCase().includes('passphrase')
       );
     },
     response: 'myPassword123',
@@ -235,8 +237,7 @@ const prompts = [
   {
     detector: (output) => {
       // Multi-condition detection
-      return output.includes('Continue?') && 
-             output.includes('(y/n)');
+      return output.includes('Continue?') && output.includes('(y/n)');
     },
     response: 'y',
   },
@@ -252,14 +253,15 @@ const prompts = [
   {
     asyncDetector: async (output) => {
       // Simulate API call or database lookup
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       // Complex multi-line analysis
       const lines = output.split('\n');
-      return lines.some(line => {
+      return lines.some((line) => {
         const cleanLine = line.trim().toLowerCase();
-        return cleanLine.includes('are you sure') && 
-               cleanLine.includes('continue');
+        return (
+          cleanLine.includes('are you sure') && cleanLine.includes('continue')
+        );
       });
     },
     response: 'yes',
@@ -271,7 +273,9 @@ const prompts = [
       if (errorCodeMatch) {
         try {
           // Make external API call
-          const response = await fetch(`https://api.example.com/errors/${errorCodeMatch[1]}`);
+          const response = await fetch(
+            `https://api.example.com/errors/${errorCodeMatch[1]}`
+          );
           const data = await response.json();
           return data.requiresConfirmation;
         } catch {
@@ -291,7 +295,7 @@ const prompts = [
 The detection methods are prioritized as follows:
 
 1. **Async Detector** (highest priority)
-2. **Sync Detector** 
+2. **Sync Detector**
 3. **Regex Pattern** (fallback)
 
 If a custom detector fails with an error, the system will automatically fall back to the regex pattern if available:

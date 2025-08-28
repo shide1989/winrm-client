@@ -15,9 +15,11 @@ async function customDetectorExample() {
         detector: (output) => {
           // More sophisticated password detection
           const lowercaseOutput = output.toLowerCase();
-          return lowercaseOutput.includes('password') || 
-                 lowercaseOutput.includes('passphrase') ||
-                 lowercaseOutput.includes('secret');
+          return (
+            lowercaseOutput.includes('password') ||
+            lowercaseOutput.includes('passphrase') ||
+            lowercaseOutput.includes('secret')
+          );
         },
         response: 'mySecretPassword123',
         isSecure: true, // Don't log the response
@@ -26,14 +28,15 @@ async function customDetectorExample() {
         // Custom async detector for complex logic
         asyncDetector: async (output) => {
           // Simulate async processing (e.g., checking against a database, API call, etc.)
-          await new Promise(resolve => setTimeout(resolve, 10));
-          
+          await new Promise((resolve) => setTimeout(resolve, 10));
+
           // Check for complex multi-line confirmation prompts
           const lines = output.split('\n');
-          return lines.some(line => {
+          return lines.some((line) => {
             const cleanLine = line.trim().toLowerCase();
-            return cleanLine.includes('are you sure') && 
-                   cleanLine.includes('(y/n)');
+            return (
+              cleanLine.includes('are you sure') && cleanLine.includes('(y/n)')
+            );
           });
         },
         response: 'y',
@@ -57,7 +60,7 @@ async function customDetectorExample() {
     const result = await winrm.runInteractivePowershell(
       command,
       'your-host',
-      'your-username', 
+      'your-username',
       'your-password',
       5985,
       prompts,
@@ -79,15 +82,15 @@ async function advancedAsyncDetectorExample() {
         const errorCodeMatch = output.match(/Error Code: (\d+)/);
         if (errorCodeMatch) {
           const errorCode = errorCodeMatch[1];
-          
+
           // Simulate API call to check if this error needs special handling
           try {
             // In reality, this might be:
             // const response = await fetch(`https://api.errors.com/codes/${errorCode}`);
             // const data = await response.json();
             // return data.requiresConfirmation;
-            
-            await new Promise(resolve => setTimeout(resolve, 100)); // Simulate API delay
+
+            await new Promise((resolve) => setTimeout(resolve, 100)); // Simulate API delay
             return ['404', '500', '503'].includes(errorCode);
           } catch (apiError) {
             console.warn('API lookup failed, falling back to pattern matching');
@@ -116,7 +119,7 @@ if (require.main === module) {
   console.log('=== Custom Detector Examples ===');
   console.log('Note: These examples require actual WinRM server credentials');
   console.log('Replace host, username, and password with actual values');
-  
+
   // Uncomment to run with actual credentials:
   // customDetectorExample();
   // advancedAsyncDetectorExample();
