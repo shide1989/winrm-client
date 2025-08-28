@@ -9,13 +9,39 @@
 winrm-client is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines.
 Please visit [Microsoft's WinRM site](http://msdn.microsoft.com/en-us/library/aa384426.aspx) for WINRM details.
 
-### ⬆️ Migration from nodejs-winrm
+#### ⬆️ Migration from nodejs-winrm
 
 Replace `shell` and `command` with `Shell` and `Command`.
 
 ```javascript
+// CommonJS
 const { Shell, Command } = require('winrm-client');
+// ES6
+import { Shell, Command } from 'winrm-client';
 ```
+
+## Installation
+
+```bash
+# Using npm
+npm install winrm-client
+
+# Using pnpm
+pnpm add winrm-client
+
+# Using yarn
+yarn add winrm-client
+```
+
+## Features
+- 🔁 Supports both CommonJS and ES6 modules.
+- 🏗️ Has types for all exported functions and interfaces.
+- 🔁 Supports interactive commands that can automatically respond to prompts using three types of detection methods: (see [Interactive Commands](#interactive-commands))
+  - Regex Patterns (traditional method)
+  - Custom Sync Detectors (new)
+  - Custom Async Detectors (new)
+- 🔍 Supports debug logging using the `DEBUG` environment variable (see [Debug Logging](#debug-logging))
+- 🧪 Supports testing (see [Testing](#testing))
 
 ## Supported NodeJS Versions
 
@@ -36,7 +62,7 @@ IdentifyResponse
     ProductVersion = OS: 10.0.xxxx SP: 0.0 Stack: 3.0
 ```
 
-## Install
+## Remote Installation
 
 On the remote host, a PowerShell prompt, using the **Run as Administrator** option and paste in the following lines:
 
@@ -51,10 +77,6 @@ y
 On the client side where NodeJS is installed
 
 `npm install winrm-client`
-
-## TypeScript Support
-
-This library includes full TypeScript support with type definitions for all exported functions and interfaces. The library is written in TypeScript and provides comprehensive type safety.
 
 ### Development Workflow
 
