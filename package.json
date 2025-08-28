@@ -15,7 +15,9 @@
     "dev": "npm run build && npm run lint && npm run format",
     "jest:test": "jest",
     "jest:coverage": "npx jest --coverage",
-    "jest:watch": "jest --watch"
+    "jest:watch": "jest --watch",
+    "prepare": "husky",
+    "test": "npm run format:check && npm run lint"
   },
   "repository": {
     "type": "git",
@@ -45,6 +47,7 @@
     "@typescript-eslint/parser": "^8.11.0",
     "eslint": "^9.33.0",
     "eslint-config-prettier": "^9.1.0",
+    "husky": "^9.1.7",
     "jest": "^30.0.5",
     "prettier": "^3.3.3",
     "ts-jest": "^29.4.1",

@@ -9,13 +9,40 @@
 winrm-client is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines.
 Please visit [Microsoft's WinRM site](http://msdn.microsoft.com/en-us/library/aa384426.aspx) for WINRM details.
 
-### ⬆️ Migration from nodejs-winrm
+#### ⬆️ Migration from nodejs-winrm
 
 Replace `shell` and `command` with `Shell` and `Command`.
 
 ```javascript
+// CommonJS
 const { Shell, Command } = require('winrm-client');
+// ES6
+import { Shell, Command } from 'winrm-client';
 ```
+
+## Installation
+
+```bash
+# Using npm
+npm install winrm-client
+
+# Using pnpm
+pnpm add winrm-client
+
+# Using yarn
+yarn add winrm-client
+```
+
+## Features
+
+- 🔁 Supports both CommonJS and ES6 modules.
+- 🏗️ Has types for all exported functions and interfaces.
+- 🔁 Supports interactive commands that can automatically respond to prompts using three types of detection methods: (see [Interactive Commands](#interactive-commands))
+  - Regex Patterns (traditional method)
+  - Custom Sync Detectors (new)
+  - Custom Async Detectors (new)
+- 🔍 Supports debug logging using the `DEBUG` environment variable (see [Debug Logging](#debug-logging))
+- 🧪 Supports testing (see [Testing](#testing))
 
 ## Supported NodeJS Versions
 
@@ -36,7 +63,7 @@ IdentifyResponse
     ProductVersion = OS: 10.0.xxxx SP: 0.0 Stack: 3.0
 ```
 
-## Install
+## Remote Installation
 
 On the remote host, a PowerShell prompt, using the **Run as Administrator** option and paste in the following lines:
 
@@ -51,10 +78,6 @@ y
 On the client side where NodeJS is installed
 
 `npm install winrm-client`
-
-## TypeScript Support
-
-This library includes full TypeScript support with type definitions for all exported functions and interfaces. The library is written in TypeScript and provides comprehensive type safety.
 
 ### Development Workflow
 
@@ -79,14 +102,6 @@ npm run format
 # Check formatting
 npm run format:check
 ```
-
-### Type Definitions
-
-The library exports the following main types:
-
-- `WinRMParams` - Configuration parameters for WinRM connections
-- `CommandParams` - Parameters for command execution
-- `SoapHeaderParams` - SOAP header configuration
 
 ### Debug Logging
 
@@ -164,41 +179,134 @@ async function executeCommand(): Promise<void> {
 executeCommand();
 ```
 
-### Run multiple Commands (Advanced)
+## Interactive Commands
+
+WinRM Client supports interactive commands that can automatically respond to prompts using three types of detection methods:
+
+1. **Regex Patterns** (traditional method)
+2. **Custom Sync Detectors** (new)
+3. **Custom Async Detectors** (new)
+
+### Basic Interactive Command
 
 ```javascript
 const winrm = require('winrm-client');
 
-const userName = 'userName';
-const password = 'password';
-const host = '10.xxx.xxx.xxx';
-const port = 5985;
+const prompts = [
+  {
+    pattern: /Enter your name:/i,
+    response: 'John Doe',
+  },
+  {
+    pattern: /Password:/i,
+    response: 'secret123',
+    isSecure: true, // Won't log the response
+  },
+];
 
-const auth =
-  'Basic ' + Buffer.from(userName + ':' + password, 'utf8').toString('base64');
-const params = {
-  host,
-  port,
-  path: '/wsman',
-};
-params['auth'] = auth;
-
-//Get the Shell ID
-params['shellId'] = await winrm.shell.doCreateShell(params);
-
-// Execute Command1
-params['command'] = 'ipconfig /all';
-params['commandId'] = await winrm.command.doExecuteCommand(params);
-const result1 = await winrm.command.doReceiveOutput(params);
-
-// Execute Command2
-params['command'] = 'mkdir D:\\winrmtest001';
-params['commandId'] = await winrm.command.doExecuteCommand(params);
-const result2 = await winrm.command.doReceiveOutput(params);
-
-// Close the Shell
-await winrm.shell.doDeleteShell(params);
+const result = await winrm.runInteractivePowershell(
+  'my-interactive-script.ps1',
+  'host',
+  'username',
+  'password',
+  5985,
+  prompts,
+  30000 // timeout in milliseconds
+);
 ```
+
+### Custom Sync Detectors
+
+Use custom synchronous functions for complex prompt detection logic:
+
+```javascript
+const prompts = [
+  {
+    detector: (output) => {
+      // Custom logic for detecting prompts
+      const lines = output.split('\n');
+      return lines.some(
+        (line) =>
+          line.toLowerCase().includes('password') ||
+          line.toLowerCase().includes('passphrase')
+      );
+    },
+    response: 'myPassword123',
+    isSecure: true,
+  },
+  {
+    detector: (output) => {
+      // Multi-condition detection
+      return output.includes('Continue?') && output.includes('(y/n)');
+    },
+    response: 'y',
+  },
+];
+```
+
+### Custom Async Detectors
+
+Use async functions for detection that requires external API calls, database lookups, or other async operations:
+
+```javascript
+const prompts = [
+  {
+    asyncDetector: async (output) => {
+      // Simulate API call or database lookup
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Complex multi-line analysis
+      const lines = output.split('\n');
+      return lines.some((line) => {
+        const cleanLine = line.trim().toLowerCase();
+        return (
+          cleanLine.includes('are you sure') && cleanLine.includes('continue')
+        );
+      });
+    },
+    response: 'yes',
+  },
+  {
+    asyncDetector: async (output) => {
+      // Example: External API validation
+      const errorCodeMatch = output.match(/Error Code: (\d+)/);
+      if (errorCodeMatch) {
+        try {
+          // Make external API call
+          const response = await fetch(
+            `https://api.example.com/errors/${errorCodeMatch[1]}`
+          );
+          const data = await response.json();
+          return data.requiresConfirmation;
+        } catch {
+          return false; // Fallback to regex pattern if available
+        }
+      }
+      return false;
+    },
+    pattern: /Do you want to retry/i, // Fallback pattern
+    response: 'yes',
+  },
+];
+```
+
+### Detection Priority and Fallback
+
+The detection methods are prioritized as follows:
+
+1. **Async Detector** (highest priority)
+2. **Sync Detector**
+3. **Regex Pattern** (fallback)
+
+If a custom detector fails with an error, the system will automatically fall back to the regex pattern if available:
+
+### Error Handling
+
+Custom detectors are wrapped in try-catch blocks to prevent failures from breaking the interactive flow:
+
+- If a custom detector throws an error, it falls back to the regex pattern
+- If both custom detector and regex pattern fail, the prompt is skipped
+- Errors are logged for debugging purposes
 
 ## Testing
 

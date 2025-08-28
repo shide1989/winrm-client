@@ -6,7 +6,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    
+
     steps:
       # 1. Checkout code
       - name: Checkout repository
@@ -34,12 +34,12 @@ jobs:
       - name: Run linting
         run: npm run lint
 
-    #   - name: Run format check
-    #     run: npm run format:check
+      #   - name: Run format check
+      #     run: npm run format:check
 
       # 6. Run tests
-    #   - name: Run tests
-    #     run: npm run jest:test
+      #   - name: Run tests
+      #     run: npm run jest:test
 
       # 7. Configure git user
       - name: Configure git user

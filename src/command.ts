@@ -20,7 +20,7 @@ import {
 
 const logger = createLogger('command');
 
-function constructRunCommandRequest(params: CommandParams): string {
+function buildRunCommandRequest(params: CommandParams): string {
   const res = getSoapHeaderRequest({
     action: 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command',
     shellId: params.shellId,
@@ -55,7 +55,7 @@ function constructRunCommandRequest(params: CommandParams): string {
   return builder.build({ 's:Envelope': res });
 }
 
-function constructReceiveOutputRequest(params: CommandParams): string {
+function buildReceiveOutputRequest(params: CommandParams): string {
   const res = getSoapHeaderRequest({
     action: 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Receive',
     shellId: params.shellId,
@@ -80,7 +80,7 @@ function constructReceiveOutputRequest(params: CommandParams): string {
   return builder.build({ 's:Envelope': res });
 }
 
-function constructSendInputRequest(params: SendInputParams): string {
+function buildSendInputRequest(params: SendInputParams): string {
   const res = getSoapHeaderRequest({
     action: 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Send',
     shellId: params.shellId,
@@ -109,7 +109,7 @@ function constructSendInputRequest(params: SendInputParams): string {
 }
 
 export async function doExecuteCommand(params: CommandParams): Promise<string> {
-  const req = constructRunCommandRequest(params);
+  const req = buildRunCommandRequest(params);
 
   const result: CommandResponse = await sendHttp(
     req,
@@ -124,7 +124,7 @@ export async function doExecuteCommand(params: CommandParams): Promise<string> {
 }
 
 export async function doSendInput(params: SendInputParams): Promise<void> {
-  const req = constructSendInputRequest(params);
+  const req = buildSendInputRequest(params);
 
   const result: SendInputResponse = await sendHttp(
     req,
@@ -172,7 +172,7 @@ export async function doExecutePowershell(
 }
 
 export async function doReceiveOutput(params: CommandParams): Promise<string> {
-  const req = constructReceiveOutputRequest(params);
+  const req = buildReceiveOutputRequest(params);
 
   const result: ReceiveResponse = await sendHttp(
     req,
@@ -223,7 +223,7 @@ export async function doReceiveOutput(params: CommandParams): Promise<string> {
 export async function doReceiveOutputNonBlocking(
   params: CommandParams
 ): Promise<ReceiveOutputResult> {
-  const req = constructReceiveOutputRequest(params);
+  const req = buildReceiveOutputRequest(params);
 
   logger.debug('doReceiveOutputNonBlocking', {
     req,

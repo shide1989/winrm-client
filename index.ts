@@ -45,22 +45,22 @@ export async function runCommand(
     const shellId = await Shell.doCreateShell(params);
     logger.debug('shellId', shellId);
     shellParams = { ...params, shellId };
-  const commandParams = { ...shellParams, command };
+    const commandParams = { ...shellParams, command };
 
-  let commandId: string;
-  if (usePowershell) {
-    commandId = await Command.doExecutePowershell(commandParams);
-  } else {
-    commandId = await Command.doExecuteCommand(commandParams);
-  }
+    let commandId: string;
+    if (usePowershell) {
+      commandId = await Command.doExecutePowershell(commandParams);
+    } else {
+      commandId = await Command.doExecuteCommand(commandParams);
+    }
 
-  logger.debug('commandId', commandId);
-  const receiveParams = { ...commandParams, commandId };
-  const output = await Command.doReceiveOutput(receiveParams);
+    logger.debug('commandId', commandId);
+    const receiveParams = { ...commandParams, commandId };
+    const output = await Command.doReceiveOutput(receiveParams);
 
-  logger.debug('output', output);
+    logger.debug('output', output);
 
-  return output;
+    return output;
   } finally {
     if (shellParams) {
       await Shell.doDeleteShell(shellParams);
@@ -127,7 +127,11 @@ export async function runInteractiveCommand(
     const shellId = await Shell.doCreateShell(params);
     logger.debug('shellId', shellId);
     shellParams = { ...params, shellId };
-    const commandParams: CommandParams = { ...shellParams, command, httpTimeout };
+    const commandParams: CommandParams = {
+      ...shellParams,
+      command,
+      httpTimeout,
+    };
 
     const commandId = await Command.doExecuteCommand(commandParams);
     logger.debug('commandId', commandId);
@@ -192,7 +196,11 @@ export async function runInteractivePowershell(
     const shellId = await Shell.doCreateShell(params);
     logger.debug('shellId', shellId);
     shellParams = { ...params, shellId };
-    const commandParams: CommandParams = { ...shellParams, command, httpTimeout };
+    const commandParams: CommandParams = {
+      ...shellParams,
+      command,
+      httpTimeout,
+    };
 
     const commandId = await Command.doExecutePowershell(commandParams, true);
     logger.debug('commandId', commandId);

@@ -175,9 +175,11 @@ export interface ReceiveOutputResult {
 }
 
 export interface InteractivePrompt {
-  pattern: RegExp;
+  pattern?: RegExp;
   response: string;
   isSecure?: boolean;
+  detector?: (output: string) => boolean;
+  asyncDetector?: (output: string) => Promise<boolean>;
 }
 
 export interface InteractiveCommandParams extends CommandParams {
