@@ -1,5 +1,5 @@
-import { runInteractivePowershell, runInteractiveCommand } from '../index';
-import { InteractivePrompt } from '../src/types';
+import { runInteractivePowershell, runInteractiveCommand } from '../../index';
+import { InteractivePrompt } from '../../src/types';
 
 const { JEST_WINRM_PASS, JEST_WINRM_USER, JEST_WINRM_HOST } = process.env;
 
