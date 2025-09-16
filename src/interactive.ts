@@ -1,7 +1,7 @@
 import {
   CommandParams,
   InteractiveCommandParams,
-  InteractivePrompt,
+  InteractivePromptOutput,
   ReceiveOutputResult,
 } from './types';
 import { doReceiveOutputNonBlocking, doSendInput } from './command';
@@ -9,7 +9,10 @@ import { createLogger } from './utils/logger';
 
 const logger = createLogger('interactive');
 
-export async function executeInteractiveCommand(
+/**
+ * Monitor the output of an interactive command, detect prompts, and send responses as needed.
+ */
+export async function monitorCommandOutput(
   params: InteractiveCommandParams
 ): Promise<string> {
   const executionTimeout = params.executionTimeout || 60000; // 60 seconds default
@@ -49,15 +52,28 @@ export async function executeInteractiveCommand(
       }
 
       // Check for prompt patterns in the most recent output
-      const detectedPrompt = detectPromptPattern(result.output, params.prompts);
+      const detectedPrompt = await detectPromptPattern(
+        result.output,
+        params.prompts
+      );
       if (detectedPrompt) {
-        const promptKey = `${detectedPrompt.pattern.source}:${detectedPrompt.response}`;
+        // Create a unique key for the prompt (handle cases where pattern might be undefined)
+        const patternSource =
+          detectedPrompt.pattern?.source || 'custom-detector';
+        const promptKey = `${patternSource}:${detectedPrompt.response}`;
 
         if (!usedPrompts.has(promptKey)) {
           usedPrompts.add(promptKey);
 
-          logger.debug('Detected prompt pattern, sending response', {
-            pattern: detectedPrompt.pattern.source,
+          const detectionMethod = detectedPrompt.asyncDetector
+            ? 'async-detector'
+            : detectedPrompt.detector
+              ? 'sync-detector'
+              : 'pattern';
+
+          logger.debug('Detected prompt, sending response', {
+            detectionMethod,
+            pattern: detectedPrompt.pattern?.source,
             isSecure: detectedPrompt.isSecure,
             response: detectedPrompt.response,
           });
@@ -85,19 +101,81 @@ export async function executeInteractiveCommand(
   return accumulatedStderr || accumulatedOutput;
 }
 
-export function detectPromptPattern(
+export async function detectPromptPattern(
   output: string,
-  prompts: InteractivePrompt[]
-): InteractivePrompt | null {
+  prompts: InteractivePromptOutput[]
+): Promise<InteractivePromptOutput | null> {
   if (!output) return null;
 
   for (const prompt of prompts) {
-    if (prompt.pattern.test(output)) {
-      logger.debug('Pattern matched', {
-        pattern: prompt.pattern.source,
+    // Validate that prompt has at least one detection method
+    if (!prompt.pattern && !prompt.detector && !prompt.asyncDetector) {
+      logger.debug('Prompt missing detection method', {
+        response: prompt.response,
+      });
+      continue;
+    }
+
+    try {
+      let matched = false;
+      let response = '';
+
+      // Check async detector first (highest priority)
+      if (prompt.asyncDetector) {
+        response = await prompt.asyncDetector(output);
+        if (response) {
+          logger.debug('Async detector matched', {
+            output: prompt.isSecure ? '[HIDDEN]' : output,
+          });
+          return { ...prompt, response };
+        }
+      }
+      // Check sync detector
+      else if (prompt.detector) {
+        matched = prompt.detector(output);
+        if (matched) {
+          logger.debug('Sync detector matched', {
+            output: prompt.isSecure ? '[HIDDEN]' : output,
+          });
+          return prompt;
+        }
+      }
+      // Fall back to regex pattern
+      else if (prompt.pattern) {
+        matched = prompt.pattern.test(output);
+        if (matched) {
+          logger.debug('Pattern matched', {
+            pattern: prompt.pattern.source,
+            output: prompt.isSecure ? '[HIDDEN]' : output,
+          });
+          return prompt;
+        }
+      }
+    } catch (error) {
+      logger.debug('Detection method error', {
+        error: error instanceof Error ? error.message : String(error),
         output: prompt.isSecure ? '[HIDDEN]' : output,
       });
-      return prompt;
+
+      // Try fallback to pattern if available
+      if (prompt.pattern) {
+        try {
+          if (prompt.pattern.test(output)) {
+            logger.debug('Pattern fallback matched after detector error', {
+              pattern: prompt.pattern.source,
+              output: prompt.isSecure ? '[HIDDEN]' : output,
+            });
+            return prompt;
+          }
+        } catch (patternError) {
+          logger.debug('Pattern fallback also failed', {
+            error:
+              patternError instanceof Error
+                ? patternError.message
+                : String(patternError),
+          });
+        }
+      }
     }
   }
 

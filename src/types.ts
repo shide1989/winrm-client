@@ -174,14 +174,26 @@ export interface ReceiveOutputResult {
   streams: StreamData[];
 }
 
-export interface InteractivePrompt {
-  pattern: RegExp;
-  response: string;
+/**
+ *
+ * @field pattern (optional) The pattern to detect
+ * @field response The response to send to the STDIN when the pattern is detected
+ * @field isSecure (optional) If true, the response will be treated as sensitive information and not logged
+ * @field detector (optional) A custom synchronous function to detect the prompt in the output
+ * @field asyncDetector (optional) A custom asynchronous function to detect the prompt in the output and return the response to send to the STDIN when the prompt is detected.
+ *
+ * Note: Either 'pattern' or 'detector'/'asyncDetector' must be provided.
+ */
+export interface InteractivePromptOutput {
+  pattern?: RegExp;
+  response?: string;
   isSecure?: boolean;
+  detector?: (output: string) => boolean;
+  asyncDetector?: (output: string) => Promise<string>;
 }
 
 export interface InteractiveCommandParams extends CommandParams {
-  prompts: InteractivePrompt[];
+  prompts: InteractivePromptOutput[];
   executionTimeout?: number;
   pollInterval?: number;
 }

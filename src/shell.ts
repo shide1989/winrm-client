@@ -7,7 +7,7 @@ import { createLogger } from './utils/logger';
 
 const logger = createLogger('shell');
 
-function constructCreateShellRequest(): string {
+function buildCreateShellRequest(): string {
   const res = getSoapHeaderRequest({
     action: 'http://schemas.xmlsoap.org/ws/2004/09/transfer/Create',
   });
@@ -43,7 +43,7 @@ function constructCreateShellRequest(): string {
   return builder.build({ 's:Envelope': res });
 }
 
-function constructDeleteShellRequest(params: WinRMParams): string {
+function buildDeleteShellRequest(params: WinRMParams): string {
   const res = getSoapHeaderRequest({
     resource_uri: 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd',
     action: 'http://schemas.xmlsoap.org/ws/2004/09/transfer/Delete',
@@ -68,7 +68,7 @@ export async function doCreateShell(params: WinRMParams): Promise<string> {
     path: params.path,
   });
 
-  const req = constructCreateShellRequest();
+  const req = buildCreateShellRequest();
 
   const result: CreateShellResponse = await sendHttp(
     req,
@@ -90,7 +90,7 @@ export async function doDeleteShell(params: WinRMParams): Promise<string> {
     host: params.host,
   });
 
-  const req = constructDeleteShellRequest(params);
+  const req = buildDeleteShellRequest(params);
 
   const result: CreateShellResponse = await sendHttp(
     req,

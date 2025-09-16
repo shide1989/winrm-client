@@ -1,14 +1,14 @@
 import * as Shell from './src/shell';
 import * as Command from './src/command';
 import { createLogger } from './src/utils/logger';
-import { executeInteractiveCommand } from './src/interactive';
+import { monitorCommandOutput } from './src/interactive';
 import {
   CommandParams,
   InteractiveCommandParams,
-  InteractivePrompt,
+  InteractivePromptOutput,
 } from './src/types';
 
-export { Shell, Command, executeInteractiveCommand };
+export { Shell, Command, monitorCommandOutput };
 
 /**
  * Execute a command on a remote Windows machine via WinRM
@@ -45,22 +45,22 @@ export async function runCommand(
     const shellId = await Shell.doCreateShell(params);
     logger.debug('shellId', shellId);
     shellParams = { ...params, shellId };
-  const commandParams = { ...shellParams, command };
+    const commandParams = { ...shellParams, command };
 
-  let commandId: string;
-  if (usePowershell) {
-    commandId = await Command.doExecutePowershell(commandParams);
-  } else {
-    commandId = await Command.doExecuteCommand(commandParams);
-  }
+    let commandId: string;
+    if (usePowershell) {
+      commandId = await Command.doExecutePowershell(commandParams);
+    } else {
+      commandId = await Command.doExecuteCommand(commandParams);
+    }
 
-  logger.debug('commandId', commandId);
-  const receiveParams = { ...commandParams, commandId };
-  const output = await Command.doReceiveOutput(receiveParams);
+    logger.debug('commandId', commandId);
+    const receiveParams = { ...commandParams, commandId };
+    const output = await Command.doReceiveOutput(receiveParams);
 
-  logger.debug('output', output);
+    logger.debug('output', output);
 
-  return output;
+    return output;
   } finally {
     if (shellParams) {
       await Shell.doDeleteShell(shellParams);
@@ -106,7 +106,7 @@ export async function runInteractiveCommand(
   username: string,
   password: string,
   port: number,
-  prompts: InteractivePrompt[],
+  prompts: InteractivePromptOutput[],
   executionTimeout?: number,
   httpTimeout?: number,
   pollInterval?: number
@@ -127,7 +127,11 @@ export async function runInteractiveCommand(
     const shellId = await Shell.doCreateShell(params);
     logger.debug('shellId', shellId);
     shellParams = { ...params, shellId };
-    const commandParams: CommandParams = { ...shellParams, command, httpTimeout };
+    const commandParams: CommandParams = {
+      ...shellParams,
+      command,
+      httpTimeout,
+    };
 
     const commandId = await Command.doExecuteCommand(commandParams);
     logger.debug('commandId', commandId);
@@ -140,7 +144,7 @@ export async function runInteractiveCommand(
       pollInterval,
     };
 
-    const output = await executeInteractiveCommand(interactiveParams);
+    const output = await monitorCommandOutput(interactiveParams);
     logger.debug('output', output);
 
     return output;
@@ -170,7 +174,7 @@ export async function runInteractivePowershell(
   username: string,
   password: string,
   port: number,
-  prompts: InteractivePrompt[],
+  prompts: InteractivePromptOutput[],
   executionTimeout?: number,
   httpTimeout?: number,
   pollInterval?: number
@@ -192,7 +196,11 @@ export async function runInteractivePowershell(
     const shellId = await Shell.doCreateShell(params);
     logger.debug('shellId', shellId);
     shellParams = { ...params, shellId };
-    const commandParams: CommandParams = { ...shellParams, command, httpTimeout };
+    const commandParams: CommandParams = {
+      ...shellParams,
+      command,
+      httpTimeout,
+    };
 
     const commandId = await Command.doExecutePowershell(commandParams, true);
     logger.debug('commandId', commandId);
@@ -205,7 +213,7 @@ export async function runInteractivePowershell(
       pollInterval,
     };
 
-    const output = await executeInteractiveCommand(interactiveParams);
+    const output = await monitorCommandOutput(interactiveParams);
     logger.debug('output', output);
 
     return output;

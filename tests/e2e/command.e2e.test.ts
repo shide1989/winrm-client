@@ -1,4 +1,4 @@
-import { runCommand, runPowershell } from '../index';
+import { runCommand, runPowershell } from '../../index';
 
 const { JEST_WINRM_PASS, JEST_WINRM_USER, JEST_WINRM_HOST } = process.env;
 

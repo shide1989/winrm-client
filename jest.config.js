@@ -9,7 +9,7 @@ module.exports = {
   clearMocks: true,
 
   // The glob patterns Jest uses to detect test files
-  testMatch: ['<rootDir>/tests/**/?(*.)+(spec|test).[tj]s?(x)'],
+  testMatch: ['<rootDir>/tests/**/*(*.)+(spec|test|e2e).[tj]s?(x)'],
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
   testPathIgnorePatterns: ['node_modules', 'dist'],
