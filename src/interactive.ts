@@ -1,7 +1,7 @@
 import {
   CommandParams,
   InteractiveCommandParams,
-  InteractivePrompt,
+  InteractivePromptOutput,
   ReceiveOutputResult,
 } from './types';
 import { doReceiveOutputNonBlocking, doSendInput } from './command';
@@ -9,7 +9,10 @@ import { createLogger } from './utils/logger';
 
 const logger = createLogger('interactive');
 
-export async function executeInteractiveCommand(
+/**
+ * Monitor the output of an interactive command, detect prompts, and send responses as needed.
+ */
+export async function monitorCommandOutput(
   params: InteractiveCommandParams
 ): Promise<string> {
   const executionTimeout = params.executionTimeout || 60000; // 60 seconds default
@@ -100,8 +103,8 @@ export async function executeInteractiveCommand(
 
 export async function detectPromptPattern(
   output: string,
-  prompts: InteractivePrompt[]
-): Promise<InteractivePrompt | null> {
+  prompts: InteractivePromptOutput[]
+): Promise<InteractivePromptOutput | null> {
   if (!output) return null;
 
   for (const prompt of prompts) {
@@ -115,15 +118,16 @@ export async function detectPromptPattern(
 
     try {
       let matched = false;
+      let response = '';
 
       // Check async detector first (highest priority)
       if (prompt.asyncDetector) {
-        matched = await prompt.asyncDetector(output);
-        if (matched) {
+        response = await prompt.asyncDetector(output);
+        if (response) {
           logger.debug('Async detector matched', {
             output: prompt.isSecure ? '[HIDDEN]' : output,
           });
-          return prompt;
+          return { ...prompt, response };
         }
       }
       // Check sync detector

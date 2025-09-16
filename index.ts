@@ -1,14 +1,14 @@
 import * as Shell from './src/shell';
 import * as Command from './src/command';
 import { createLogger } from './src/utils/logger';
-import { executeInteractiveCommand } from './src/interactive';
+import { monitorCommandOutput } from './src/interactive';
 import {
   CommandParams,
   InteractiveCommandParams,
-  InteractivePrompt,
+  InteractivePromptOutput,
 } from './src/types';
 
-export { Shell, Command, executeInteractiveCommand };
+export { Shell, Command, monitorCommandOutput };
 
 /**
  * Execute a command on a remote Windows machine via WinRM
@@ -106,7 +106,7 @@ export async function runInteractiveCommand(
   username: string,
   password: string,
   port: number,
-  prompts: InteractivePrompt[],
+  prompts: InteractivePromptOutput[],
   executionTimeout?: number,
   httpTimeout?: number,
   pollInterval?: number
@@ -144,7 +144,7 @@ export async function runInteractiveCommand(
       pollInterval,
     };
 
-    const output = await executeInteractiveCommand(interactiveParams);
+    const output = await monitorCommandOutput(interactiveParams);
     logger.debug('output', output);
 
     return output;
@@ -174,7 +174,7 @@ export async function runInteractivePowershell(
   username: string,
   password: string,
   port: number,
-  prompts: InteractivePrompt[],
+  prompts: InteractivePromptOutput[],
   executionTimeout?: number,
   httpTimeout?: number,
   pollInterval?: number
@@ -213,7 +213,7 @@ export async function runInteractivePowershell(
       pollInterval,
     };
 
-    const output = await executeInteractiveCommand(interactiveParams);
+    const output = await monitorCommandOutput(interactiveParams);
     logger.debug('output', output);
 
     return output;

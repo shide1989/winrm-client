@@ -1,10 +1,10 @@
 import { detectPromptPattern } from '../src/interactive';
-import { InteractivePrompt } from '../src/types';
+import { InteractivePromptOutput } from '../src/types';
 
 describe('Custom Detector Tests', () => {
   describe('detectPromptPattern with custom detectors', () => {
     it('should use sync detector when provided', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           detector: (output: string): boolean =>
             output.includes('custom-sync-trigger'),
@@ -21,13 +21,12 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should use async detector when provided', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
-          asyncDetector: async (output: string): Promise<boolean> => {
+          asyncDetector: async (output: string): Promise<string> => {
             await new Promise((resolve) => setTimeout(resolve, 10)); // Simulate async work
-            return output.includes('async-trigger');
+            return output.includes('async-trigger') ? 'async-response' : '';
           },
-          response: 'async-response',
         },
       ];
 
@@ -40,12 +39,11 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should prioritize async detector over sync detector', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           detector: (): boolean => true, // Would always match
-          asyncDetector: async (output: string): Promise<boolean> =>
-            output.includes('priority-test'),
-          response: 'async-priority',
+          asyncDetector: async (output: string): Promise<string> =>
+            output.includes('priority-test') ? 'async-priority' : '',
         },
       ];
 
@@ -59,7 +57,7 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should prioritize sync detector over regex pattern', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           pattern: /.*/, // Would always match
           detector: (output: string): boolean =>
@@ -78,7 +76,7 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should fall back to regex pattern when no custom detectors provided', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           pattern: /pattern-test/,
           response: 'pattern-response',
@@ -91,7 +89,7 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should handle detector errors and fall back to pattern', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           detector: (): boolean => {
             throw new Error('Detector error');
@@ -107,9 +105,9 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should handle async detector errors and fall back to pattern', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
-          asyncDetector: async (): Promise<boolean> => {
+          asyncDetector: async (): Promise<string> => {
             throw new Error('Async detector error');
           },
           pattern: /async-fallback/,
@@ -123,10 +121,10 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should return null when no detection method provided', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           response: 'invalid-prompt',
-        } as InteractivePrompt, // Type assertion to bypass TypeScript validation for testing
+        } as InteractivePromptOutput, // Type assertion to bypass TypeScript validation for testing
       ];
 
       const result = await detectPromptPattern('any text', prompts);
@@ -134,7 +132,7 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should return null when all detection methods fail', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           detector: (): boolean => {
             throw new Error('Sync error');
@@ -149,7 +147,7 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should handle multiple prompts with mixed detection methods', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           pattern: /pattern1/,
           response: 'pattern-response',
@@ -160,9 +158,8 @@ describe('Custom Detector Tests', () => {
           response: 'sync-response',
         },
         {
-          asyncDetector: async (output: string): Promise<boolean> =>
-            output.includes('promise-await'),
-          response: 'async-response',
+          asyncDetector: async (output: string): Promise<string> =>
+            output.includes('promise-await') ? 'async-response' : '',
         },
       ];
 
@@ -180,7 +177,7 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should return first matching prompt in order', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           detector: (): boolean => true,
           response: 'first-match',
@@ -196,7 +193,7 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should handle secure prompts with custom detectors', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           detector: (output: string): boolean => output.includes('password'),
           response: 'secret123',
@@ -211,18 +208,20 @@ describe('Custom Detector Tests', () => {
     });
 
     it('should handle complex async detection logic', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
-          asyncDetector: async (output: string): Promise<boolean> => {
+          asyncDetector: async (output: string): Promise<string> => {
             // Simulate complex async logic (e.g., API call, file read, etc.)
+            const mockedResponse = 'yes';
             await new Promise((resolve) => setTimeout(resolve, 50));
             const lines = output.split('\n');
             return lines.some(
               (line) =>
                 line.trim().startsWith('>>') && line.includes('continue')
-            );
+            )
+              ? mockedResponse
+              : '';
           },
-          response: 'yes',
         },
       ];
 
@@ -238,7 +237,7 @@ More output
     });
 
     it('should handle empty output gracefully', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           detector: (): boolean => true,
           response: 'should-not-match',
@@ -250,7 +249,7 @@ More output
     });
 
     it('should handle null output gracefully', async () => {
-      const prompts: InteractivePrompt[] = [
+      const prompts: InteractivePromptOutput[] = [
         {
           detector: (): boolean => true,
           response: 'should-not-match',
