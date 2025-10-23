@@ -246,26 +246,10 @@ const prompts = [
 
 ### Custom Async Detectors
 
-Use async functions for detection that requires external API calls, database lookups, or other async operations:
+Use async functions for detection that requires external API calls, LLM responses, database lookups, or other async operations:
 
 ```javascript
 const prompts = [
-  {
-    asyncDetector: async (output) => {
-      // Simulate API call or database lookup
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Complex multi-line analysis
-      const lines = output.split('\n');
-      return lines.some((line) => {
-        const cleanLine = line.trim().toLowerCase();
-        return (
-          cleanLine.includes('are you sure') && cleanLine.includes('continue')
-        );
-      });
-    },
-    response: 'yes',
-  },
   {
     asyncDetector: async (output) => {
       // Example: External API validation
@@ -277,15 +261,14 @@ const prompts = [
             `https://api.example.com/errors/${errorCodeMatch[1]}`
           );
           const data = await response.json();
-          return data.requiresConfirmation;
+          return data.requiresConfirmation ? 'yes' : '';
         } catch {
-          return false; // Fallback to regex pattern if available
+          return 'no'; // Fallback to regex pattern if available
         }
       }
-      return false;
+      return 'no';
     },
     pattern: /Do you want to retry/i, // Fallback pattern
-    response: 'yes',
   },
 ];
 ```
