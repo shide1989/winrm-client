@@ -10,6 +10,9 @@ importers:
       fast-xml-parser:
         specifier: ^4.3.2
         version: 4.5.3
+      httpntlm:
+        specifier: ^1.8.13
+        version: 1.8.13
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
@@ -1348,6 +1351,12 @@ packages:
       }
     engines: { node: '>=0.10.0' }
 
+  des.js@1.1.0:
+    resolution:
+      {
+        integrity: sha512-r17GxjhUCjSRy8aiJpr8/UadFIzMzJGexI3Nmz4ADi9LYSFx4gTBp80+NaX/YsXWWLhpZ7v/v/ubEc/bCNfKwg==,
+      }
+
   detect-newline@3.1.0:
     resolution:
       {
@@ -1722,6 +1731,20 @@ packages:
         integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==,
       }
 
+  httpntlm@1.8.13:
+    resolution:
+      {
+        integrity: sha512-2F2FDPiWT4rewPzNMg3uPhNkP3NExENlUGADRUDPQvuftuUTGW98nLZtGemCIW3G40VhWZYgkIDcQFAwZ3mf2Q==,
+      }
+    engines: { node: '>=10.4.0' }
+
+  httpreq@1.1.1:
+    resolution:
+      {
+        integrity: sha512-uhSZLPPD2VXXOSN8Cni3kIsoFHaU2pT/nySEU/fHr/ePbqHYr0jeiQRmUKLEirC09SFPsdMoA7LU7UXMd/w0Kw==,
+      }
+    engines: { node: '>= 6.15.1' }
+
   human-signals@2.1.0:
     resolution:
       {
@@ -2084,6 +2107,12 @@ packages:
       node-notifier:
         optional: true
 
+  js-md4@0.3.2:
+    resolution:
+      {
+        integrity: sha512-/GDnfQYsltsjRswQhN9fhv3EMw2sCpUdrdxyWDOUK7eyD++r3gRhzgiQgc/x4MAv2i1iuQ4lxO5mvqM3vj4bwA==,
+      }
+
   js-tokens@4.0.0:
     resolution:
       {
@@ -2253,6 +2282,12 @@ packages:
         integrity: sha512-OqbOk5oEQeAZ8WXWydlu9HJjz9WVdEIvamMCcXmuqUYjTknH/sqsWvhQ3vgwKFRR1HpjvNBKQ37nbJgYzGqGcg==,
       }
     engines: { node: '>=6' }
+
+  minimalistic-assert@1.0.1:
+    resolution:
+      {
+        integrity: sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A==,
+      }
 
   minimatch@3.1.2:
     resolution:
@@ -2823,6 +2858,12 @@ packages:
       }
     engines: { node: '>=0.8.0' }
     hasBin: true
+
+  underscore@1.12.1:
+    resolution:
+      {
+        integrity: sha512-hEQt0+ZLDVUMhebKxL4x1BTtDY7bavVofhZ9KZ4aI26X9SRaE+Y3m83XUL1UP2jn8ynjndwCCpEHdUG+9pP1Tw==,
+      }
 
   undici-types@6.21.0:
     resolution:
@@ -3861,6 +3902,11 @@ snapshots:
 
   deepmerge@4.3.1: {}
 
+  des.js@1.1.0:
+    dependencies:
+      inherits: 2.0.4
+      minimalistic-assert: 1.0.1
+
   detect-newline@3.1.0: {}
 
   eastasianwidth@0.2.0: {}
@@ -4092,6 +4138,15 @@ snapshots:
   has-flag@4.0.0: {}
 
   html-escaper@2.0.2: {}
+
+  httpntlm@1.8.13:
+    dependencies:
+      des.js: 1.1.0
+      httpreq: 1.1.1
+      js-md4: 0.3.2
+      underscore: 1.12.1
+
+  httpreq@1.1.1: {}
 
   human-signals@2.1.0: {}
 
@@ -4486,6 +4541,8 @@ snapshots:
       - supports-color
       - ts-node
 
+  js-md4@0.3.2: {}
+
   js-tokens@4.0.0: {}
 
   js-yaml@3.14.1:
@@ -4560,6 +4617,8 @@ snapshots:
       picomatch: 2.3.1
 
   mimic-fn@2.1.0: {}
+
+  minimalistic-assert@1.0.1: {}
 
   minimatch@3.1.2:
     dependencies:
@@ -4823,6 +4882,8 @@ snapshots:
 
   uglify-js@3.19.3:
     optional: true
+
+  underscore@1.12.1: {}
 
   undici-types@6.21.0: {}
 

@@ -26,6 +26,8 @@ function buildRunCommandRequest(params: CommandParams): string {
     shellId: params.shellId,
   });
 
+  // WINRS_CONSOLEMODE_STDIN: TRUE = enable stdin for interactive commands
+  // WINRS_SKIP_CMD_SHELL: FALSE = run through cmd.exe (needed for shell features like pipes)
   res['s:Header']['wsman:OptionSet'] = [];
   res['s:Header']['wsman:OptionSet'].push({
     'wsman:Option': [
@@ -116,7 +118,9 @@ export async function doExecuteCommand(params: CommandParams): Promise<string> {
     params.host,
     params.port,
     params.path,
-    params.auth,
+    params.username,
+    params.password,
+    params.authMethod,
     params.httpTimeout
   );
 
@@ -131,7 +135,9 @@ export async function doSendInput(params: SendInputParams): Promise<void> {
     params.host,
     params.port,
     params.path,
-    params.auth,
+    params.username,
+    params.password,
+    params.authMethod,
     params.httpTimeout
   );
 
@@ -179,7 +185,9 @@ export async function doReceiveOutput(params: CommandParams): Promise<string> {
     params.host,
     params.port,
     params.path,
-    params.auth,
+    params.username,
+    params.password,
+    params.authMethod,
     params.httpTimeout
   );
 
@@ -225,16 +233,16 @@ export async function doReceiveOutputNonBlocking(
 ): Promise<ReceiveOutputResult> {
   const req = buildReceiveOutputRequest(params);
 
-  logger.debug('doReceiveOutputNonBlocking', {
-    req,
-    params,
-  });
+  logger.debug('doReceiveOutputNonBlocking', { req, params });
+
   const result: ReceiveResponse = await sendHttp(
     req,
     params.host,
     params.port,
     params.path,
-    params.auth,
+    params.username,
+    params.password,
+    params.authMethod,
     params.httpTimeout
   );
 

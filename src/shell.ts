@@ -12,6 +12,8 @@ function buildCreateShellRequest(): string {
     action: 'http://schemas.xmlsoap.org/ws/2004/09/transfer/Create',
   });
 
+  // WINRS_NOPROFILE: FALSE = load user profile (needed for some PowerShell operations)
+  // WINRS_CODEPAGE: 437 = US English, standard for Windows command output
   res['s:Header']['wsman:OptionSet'] = [];
   res['s:Header']['wsman:OptionSet'].push({
     'wsman:Option': [
@@ -65,17 +67,18 @@ export async function doCreateShell(params: WinRMParams): Promise<string> {
   logger.debug('Creating shell', {
     host: params.host,
     port: params.port,
-    path: params.path,
+    authMethod: params.authMethod,
   });
 
   const req = buildCreateShellRequest();
-
   const result: CreateShellResponse = await sendHttp(
     req,
     params.host,
     params.port,
     params.path,
-    params.auth
+    params.username,
+    params.password,
+    params.authMethod
   );
 
   const shellId = extractShellId(result);
@@ -91,13 +94,14 @@ export async function doDeleteShell(params: WinRMParams): Promise<string> {
   });
 
   const req = buildDeleteShellRequest(params);
-
   const result: CreateShellResponse = await sendHttp(
     req,
     params.host,
     params.port,
     params.path,
-    params.auth
+    params.username,
+    params.password,
+    params.authMethod
   );
 
   checkForSoapFault(result);

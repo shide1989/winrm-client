@@ -6,15 +6,36 @@ import {
   CommandParams,
   InteractiveCommandParams,
   InteractivePromptOutput,
+  WinRMParams,
 } from './src/types';
+import { detectAuthMethod } from './src/utils/auth';
 
 export { Shell, Command, monitorCommandOutput };
+
+/**
+ * Create WinRM connection parameters with auto-detected authentication.
+ */
+function createWinRMParams(
+  host: string,
+  port: number,
+  username: string,
+  password: string
+): WinRMParams {
+  return {
+    host,
+    port,
+    path: '/wsman',
+    username,
+    password,
+    authMethod: detectAuthMethod(username),
+  };
+}
 
 /**
  * Execute a command on a remote Windows machine via WinRM
  * @param command - Command to execute
  * @param host - Target host address
- * @param username - Username for authentication
+ * @param username - Username for authentication (supports local, DOMAIN\user, or user@domain.com formats)
  * @param password - Password for authentication
  * @param port - WinRM port (typically 5985 for HTTP)
  * @param usePowershell - Whether to use PowerShell (default: false)
@@ -29,16 +50,9 @@ export async function runCommand(
   usePowershell = false
 ): Promise<string> {
   const logger = createLogger('runCommand');
+  const params = createWinRMParams(host, port, username, password);
 
-  const auth =
-    'Basic ' +
-    Buffer.from(username + ':' + password, 'utf8').toString('base64');
-  const params = {
-    host,
-    port,
-    path: '/wsman',
-    auth: auth,
-  };
+  logger.debug('Using auth method', { authMethod: params.authMethod });
 
   let shellParams: CommandParams | null = null;
   try {
@@ -47,19 +61,15 @@ export async function runCommand(
     shellParams = { ...params, shellId };
     const commandParams = { ...shellParams, command };
 
-    let commandId: string;
-    if (usePowershell) {
-      commandId = await Command.doExecutePowershell(commandParams);
-    } else {
-      commandId = await Command.doExecuteCommand(commandParams);
-    }
+    const commandId = usePowershell
+      ? await Command.doExecutePowershell(commandParams)
+      : await Command.doExecuteCommand(commandParams);
 
     logger.debug('commandId', commandId);
     const receiveParams = { ...commandParams, commandId };
     const output = await Command.doReceiveOutput(receiveParams);
 
     logger.debug('output', output);
-
     return output;
   } finally {
     if (shellParams) {
@@ -91,7 +101,7 @@ export async function runPowershell(
  * Execute an interactive command that responds to prompts via WinRM
  * @param command - Command to execute
  * @param host - Target host address
- * @param username - Username for authentication
+ * @param username - Username for authentication (supports local, DOMAIN\user, or user@domain.com formats)
  * @param password - Password for authentication
  * @param port - WinRM port (typically 5985 for HTTP)
  * @param prompts - Array of prompt patterns and responses
@@ -112,21 +122,16 @@ export async function runInteractiveCommand(
   pollInterval?: number
 ): Promise<string> {
   const logger = createLogger('runInteractiveCommand');
+  const params = createWinRMParams(host, port, username, password);
+
+  logger.debug('Using auth method', { authMethod: params.authMethod });
+
   let shellParams: CommandParams | null = null;
   try {
-    const auth =
-      'Basic ' +
-      Buffer.from(username + ':' + password, 'utf8').toString('base64');
-    const params = {
-      host,
-      port,
-      path: '/wsman',
-      auth: auth,
-    };
-
     const shellId = await Shell.doCreateShell(params);
     logger.debug('shellId', shellId);
     shellParams = { ...params, shellId };
+
     const commandParams: CommandParams = {
       ...shellParams,
       command,
@@ -146,7 +151,6 @@ export async function runInteractiveCommand(
 
     const output = await monitorCommandOutput(interactiveParams);
     logger.debug('output', output);
-
     return output;
   } finally {
     if (shellParams) {
@@ -159,7 +163,7 @@ export async function runInteractiveCommand(
  * Execute an interactive PowerShell command that responds to prompts via WinRM
  * @param command - PowerShell command to execute
  * @param host - Target host address
- * @param username - Username for authentication
+ * @param username - Username for authentication (supports local, DOMAIN\user, or user@domain.com formats)
  * @param password - Password for authentication
  * @param port - WinRM port (typically 5985 for HTTP)
  * @param prompts - Array of prompt patterns and responses
@@ -179,23 +183,17 @@ export async function runInteractivePowershell(
   httpTimeout?: number,
   pollInterval?: number
 ): Promise<string> {
+  const logger = createLogger('runInteractivePowershell');
+  const params = createWinRMParams(host, port, username, password);
+
+  logger.debug('Using auth method', { authMethod: params.authMethod });
+
   let shellParams: CommandParams | null = null;
   try {
-    const logger = createLogger('runInteractivePowershell');
-
-    const auth =
-      'Basic ' +
-      Buffer.from(username + ':' + password, 'utf8').toString('base64');
-    const params = {
-      host,
-      port,
-      path: '/wsman',
-      auth: auth,
-    };
-
     const shellId = await Shell.doCreateShell(params);
     logger.debug('shellId', shellId);
     shellParams = { ...params, shellId };
+
     const commandParams: CommandParams = {
       ...shellParams,
       command,
@@ -215,7 +213,6 @@ export async function runInteractivePowershell(
 
     const output = await monitorCommandOutput(interactiveParams);
     logger.debug('output', output);
-
     return output;
   } finally {
     if (shellParams) {
