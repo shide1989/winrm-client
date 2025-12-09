@@ -1,6 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import * as http from 'http';
-import httpntlm from 'httpntlm';
+import * as ntlm from './ntlm';
 import { createLogger } from './logger';
 import { SoapEnvelope, AuthMethod } from '../types';
 import { parseUsername, createBasicAuth } from './auth';
@@ -96,11 +96,62 @@ function sendHttpBasic<T extends SoapEnvelope>(
 }
 
 /**
- * Send HTTP request with NTLM authentication.
- * NTLM requires a 3-way handshake (Type1 → Type2 challenge → Type3 response).
- * The httpntlm library handles this internally.
+ * Make HTTP request and return response with headers.
+ * Used for NTLM handshake steps.
  */
-function sendHttpNtlm<T extends SoapEnvelope>(
+function makeRequest(
+  options: http.RequestOptions,
+  body: string,
+  agent: http.Agent
+): Promise<{
+  statusCode: number;
+  headers: http.IncomingHttpHeaders;
+  body: string;
+}> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ ...options, agent }, (res) => {
+      res.setEncoding('utf8');
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        resolve({
+          statusCode: res.statusCode || 0,
+          headers: res.headers,
+          body: data,
+        });
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+/**
+ * Extract NTLM/Negotiate token from WWW-Authenticate header.
+ */
+function extractAuthToken(headers: http.IncomingHttpHeaders): string | null {
+  const wwwAuth = headers['www-authenticate'];
+  if (!wwwAuth) return null;
+
+  // Handle array or string
+  const authHeader = Array.isArray(wwwAuth) ? wwwAuth[0] : wwwAuth;
+
+  // Match both "Negotiate <token>" and "NTLM <token>"
+  const match = authHeader.match(/(?:Negotiate|NTLM)\s+([A-Za-z0-9+/=]+)/i);
+  return match ? match[1] : null;
+}
+
+/**
+ * Send HTTP request with NTLM authentication.
+ * Implements the 3-step NTLM handshake:
+ * 1. Send Type 1 (negotiate) message
+ * 2. Receive Type 2 (challenge) message
+ * 3. Send Type 3 (authenticate) message with response
+ *
+ * All requests must use the same TCP connection (keep-alive).
+ */
+async function sendHttpNtlm<T extends SoapEnvelope>(
   data: string,
   host: string,
   port: number,
@@ -110,58 +161,138 @@ function sendHttpNtlm<T extends SoapEnvelope>(
   timeout?: number
 ): Promise<T> {
   const parsed = parseUsername(username);
-  const url = `http://${host}:${port}${path}`;
 
   logger.debug('Sending HTTP request (NTLM)', {
     host,
     port,
     path,
     domain: parsed.domain,
+    username: parsed.user,
   });
 
-  return new Promise<T>((resolve, reject) => {
-    const options: httpntlm.Options = {
-      url,
-      username: parsed.user,
-      password,
-      domain: parsed.domain,
-      workstation: '', // Optional - identifies client machine, not required for WinRM
-      body: data,
-      headers: {
-        'Content-Type': 'application/soap+xml;charset=UTF-8',
-        'User-Agent': 'NodeJS WinRM Client',
+  // Keep-alive agent to maintain same TCP connection for NTLM handshake
+  const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+
+  const baseOptions: http.RequestOptions = {
+    host,
+    port,
+    path,
+    method: 'POST',
+    timeout,
+    headers: {
+      'Content-Type': 'application/soap+xml;charset=UTF-8',
+      'User-Agent': 'NodeJS WinRM Client',
+      Connection: 'keep-alive',
+    },
+  };
+
+  try {
+    // Step 0: Initial request without auth to get server's supported methods
+    logger.debug('NTLM Step 0: Initial probe');
+
+    const probeResponse = await makeRequest(
+      {
+        ...baseOptions,
+        headers: {
+          ...baseOptions.headers,
+          'Content-Length': 0,
+        },
       },
-    };
+      '',
+      agent
+    );
 
-    if (timeout) options.timeout = timeout;
-
-    httpntlm.post(options, (err, res) => {
-      if (err) {
-        logger.debug('NTLM HTTP request error', err);
-        reject(err);
-        return;
-      }
-
-      logger.debug('NTLM HTTP response received', {
-        statusCode: res?.statusCode,
-      });
-
-      if (res?.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
-        reject(
-          new Error(
-            `Failed to process the request: ${res.statusCode} ${res.statusMessage || '(no message)'}`
-          )
-        );
-        return;
-      }
-
-      try {
-        resolve(parseXmlResponse<T>(res?.body || ''));
-      } catch (parseErr) {
-        reject(new Error('Data Parsing error: ' + (parseErr as Error).message));
-      }
+    logger.debug('NTLM Step 0 response', {
+      statusCode: probeResponse.statusCode,
+      wwwAuth: probeResponse.headers['www-authenticate'],
     });
-  });
+
+    // Step 1: Generate and send Type 1 message
+    // ntlm-client returns "NTLM <base64>", we need just the base64 part
+    const type1Full = ntlm.createType1Message('', parsed.domain);
+    const type1 = type1Full.replace(/^NTLM\s+/, '');
+
+    logger.debug('NTLM Step 1: Sending Type 1 message', { type1 });
+
+    const step1Response = await makeRequest(
+      {
+        ...baseOptions,
+        headers: {
+          ...baseOptions.headers,
+          Authorization: `Negotiate ${type1}`,
+          'Content-Length': 0,
+        },
+      },
+      '',
+      agent
+    );
+
+    logger.debug('NTLM Step 1 response', {
+      statusCode: step1Response.statusCode,
+      wwwAuth: step1Response.headers['www-authenticate'],
+    });
+
+    // Step 2: Extract Type 2 challenge
+    if (step1Response.statusCode !== 401) {
+      if (step1Response.statusCode >= 200 && step1Response.statusCode < 300) {
+        return parseXmlResponse<T>(step1Response.body);
+      }
+      throw new Error(
+        `NTLM Step 1 failed: ${step1Response.statusCode} - expected 401 challenge`
+      );
+    }
+
+    const type2Token = extractAuthToken(step1Response.headers);
+    if (!type2Token) {
+      const wwwAuth = step1Response.headers['www-authenticate'];
+      throw new Error(
+        `NTLM Step 2 failed: No challenge token. WWW-Authenticate: ${wwwAuth || '(not present)'}`
+      );
+    }
+
+    logger.debug('NTLM Step 2: Received Type 2 challenge');
+
+    // Step 3: Generate and send Type 3 message
+    const type2Message = ntlm.decodeType2Message(type2Token);
+    // ntlm-client returns "NTLM <base64>", we need just the base64 part
+    const type3Full = ntlm.createType3Message(
+      type2Message,
+      parsed.user,
+      password,
+      '',
+      parsed.domain
+    );
+    const type3 = type3Full.replace(/^NTLM\s+/, '');
+
+    logger.debug('NTLM Step 3: Sending Type 3 authentication', { type3 });
+
+    const step3Response = await makeRequest(
+      {
+        ...baseOptions,
+        headers: {
+          ...baseOptions.headers,
+          Authorization: `Negotiate ${type3}`,
+          'Content-Length': Buffer.byteLength(data),
+        },
+      },
+      data,
+      agent
+    );
+
+    logger.debug('NTLM Step 3 response', {
+      statusCode: step3Response.statusCode,
+    });
+
+    if (step3Response.statusCode < 200 || step3Response.statusCode >= 300) {
+      throw new Error(
+        `NTLM authentication failed: ${step3Response.statusCode} ${step3Response.body || '(no message)'}`
+      );
+    }
+
+    return parseXmlResponse<T>(step3Response.body);
+  } finally {
+    agent.destroy();
+  }
 }
 
 /**
