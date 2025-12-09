@@ -37,6 +37,7 @@ yarn add winrm-client
 
 - 🔁 Supports both CommonJS and ES6 modules.
 - 🏗️ Has types for all exported functions and interfaces.
+- 🔐 **Supports both Basic and NTLM authentication** (auto-detected based on username format)
 - 🔁 Supports interactive commands that can automatically respond to prompts using three types of detection methods: (see [Interactive Commands](#interactive-commands))
   - Regex Patterns (traditional method)
   - Custom Sync Detectors (new)
@@ -78,6 +79,54 @@ y
 On the client side where NodeJS is installed
 
 `npm install winrm-client`
+
+## Authentication
+
+winrm-client supports two authentication methods that are **automatically detected** based on the username format:
+
+### Basic Authentication
+
+Used for local usernames (no domain prefix). Requires enabling Basic auth on the WinRM service.
+
+```javascript
+// Local username - uses Basic authentication
+await runCommand('hostname', 'server', 'Administrator', 'password', 5985);
+```
+
+### NTLM Authentication
+
+Used for domain accounts. Automatically enabled when using domain-prefixed usernames.
+
+```javascript
+// Domain prefix format (DOMAIN\user) - uses NTLM authentication
+await runCommand(
+  'hostname',
+  'server',
+  'DOMAIN\\Administrator',
+  'password',
+  5985
+);
+
+// UPN format (user@domain.com) - uses NTLM authentication
+await runCommand('hostname', 'server', 'admin@company.com', 'password', 5985);
+```
+
+### Username Format Support
+
+| Username Format | Auth Method | Example           |
+| --------------- | ----------- | ----------------- |
+| Local           | Basic       | `Administrator`   |
+| Domain prefix   | NTLM        | `DOMAIN\user`     |
+| UPN             | NTLM        | `user@domain.com` |
+
+### Remote Host Configuration for NTLM
+
+For NTLM authentication, ensure the remote WinRM service allows Negotiate authentication:
+
+```powershell
+# Enable Negotiate authentication (includes NTLM)
+> winrm set winrm/config/service/Auth '@{Negotiate="true"}'
+```
 
 ### Development Workflow
 
@@ -177,6 +226,42 @@ async function executeCommand(): Promise<void> {
 }
 
 executeCommand();
+```
+
+### Run Command with NTLM Authentication
+
+For domain-joined machines or Azure AD accounts:
+
+```typescript
+import { runCommand, runPowershell } from 'winrm-client';
+
+async function executeDomainCommand(): Promise<void> {
+  try {
+    // Using DOMAIN\user format
+    const result = await runCommand(
+      'whoami',
+      'server.company.com',
+      'CORPORATE\\admin',
+      'password',
+      5985
+    );
+    console.log('Current user:', result);
+
+    // Using UPN format (user@domain.com)
+    const psResult = await runPowershell(
+      'Get-Process | Select-Object -First 5',
+      'server.company.com',
+      'admin@corporate.local',
+      'password',
+      5985
+    );
+    console.log('Processes:', psResult);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+executeDomainCommand();
 ```
 
 ## Interactive Commands

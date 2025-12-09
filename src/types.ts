@@ -1,8 +1,21 @@
+// Authentication types
+export type AuthMethod = 'basic' | 'ntlm';
+export type UsernameFormat = 'local' | 'domain' | 'upn';
+
+export interface ParsedUsername {
+  user: string;
+  domain: string;
+  format: UsernameFormat;
+}
+
 export interface WinRMParams {
   host: string;
   port: number;
   path: string;
-  auth: string;
+  username: string;
+  password: string;
+  /** Auto-detected from username format: local='basic', domain/UPN='ntlm' */
+  authMethod: AuthMethod;
   message_id?: string;
   action?: string;
   shellId?: string;

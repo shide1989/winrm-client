@@ -5,3 +5,4 @@ coverage
 .git
 package-lock.json
 docs/
+pnpm-lock.yaml
