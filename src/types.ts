@@ -16,6 +16,10 @@ export interface WinRMParams {
   password: string;
   /** Auto-detected from username format: local='basic', domain/UPN='ntlm' */
   authMethod: AuthMethod;
+  /** Use HTTPS (port 5986) instead of HTTP (port 5985). Default: false */
+  useHttps?: boolean;
+  /** Reject unauthorized certificates (self-signed). Default: true. Set to false for self-signed certs. */
+  rejectUnauthorized?: boolean;
   message_id?: string;
   action?: string;
   shellId?: string;

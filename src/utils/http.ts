@@ -1,9 +1,12 @@
 import { XMLParser } from 'fast-xml-parser';
 import * as http from 'http';
+import * as https from 'https';
 import * as ntlm from './ntlm';
 import { createLogger } from './logger';
 import { SoapEnvelope, AuthMethod } from '../types';
 import { parseUsername, createBasicAuth } from './auth';
+
+type HttpModule = typeof http | typeof https;
 
 const logger = createLogger('http');
 
@@ -29,9 +32,12 @@ function sendHttpBasic<T extends SoapEnvelope>(
   path: string,
   username: string,
   password: string,
-  timeout?: number
+  timeout?: number,
+  useHttps?: boolean,
+  rejectUnauthorized?: boolean
 ): Promise<T> {
-  const options: http.RequestOptions = {
+  const httpModule: HttpModule = useHttps ? https : http;
+  const options: http.RequestOptions | https.RequestOptions = {
     host,
     port,
     path,
@@ -42,13 +48,14 @@ function sendHttpBasic<T extends SoapEnvelope>(
       'User-Agent': 'NodeJS WinRM Client',
       'Content-Length': Buffer.byteLength(data),
     },
+    ...(useHttps && { rejectUnauthorized: rejectUnauthorized ?? true }),
   };
 
-  logger.debug('Sending HTTP request (Basic)', { host, port, path });
+  logger.debug('Sending HTTP request (Basic)', { host, port, path, useHttps });
 
   return new Promise<T>((resolve, reject) => {
     let timeoutId: NodeJS.Timeout;
-    const req = http.request(options, (res) => {
+    const req = httpModule.request(options, (res) => {
       logger.debug('HTTP response received', {
         statusCode: res.statusCode,
         statusMessage: res.statusMessage,
@@ -100,16 +107,17 @@ function sendHttpBasic<T extends SoapEnvelope>(
  * Used for NTLM handshake steps.
  */
 function makeRequest(
-  options: http.RequestOptions,
+  options: http.RequestOptions | https.RequestOptions,
   body: string,
-  agent: http.Agent
+  agent: http.Agent | https.Agent,
+  httpModule: HttpModule
 ): Promise<{
   statusCode: number;
   headers: http.IncomingHttpHeaders;
   body: string;
 }> {
   return new Promise((resolve, reject) => {
-    const req = http.request({ ...options, agent }, (res) => {
+    const req = httpModule.request({ ...options, agent }, (res) => {
       res.setEncoding('utf8');
       let data = '';
       res.on('data', (chunk) => (data += chunk));
@@ -158,9 +166,12 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
   path: string,
   username: string,
   password: string,
-  timeout?: number
+  timeout?: number,
+  useHttps?: boolean,
+  rejectUnauthorized?: boolean
 ): Promise<T> {
   const parsed = parseUsername(username);
+  const httpModule: HttpModule = useHttps ? https : http;
 
   logger.debug('Sending HTTP request (NTLM)', {
     host,
@@ -168,12 +179,20 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
     path,
     domain: parsed.domain,
     username: parsed.user,
+    useHttps,
   });
 
   // Keep-alive agent to maintain same TCP connection for NTLM handshake
-  const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+  const agentOptions = {
+    keepAlive: true,
+    maxSockets: 1,
+    ...(useHttps && { rejectUnauthorized: rejectUnauthorized ?? true }),
+  };
+  const agent = useHttps
+    ? new https.Agent(agentOptions)
+    : new http.Agent(agentOptions);
 
-  const baseOptions: http.RequestOptions = {
+  const baseOptions: http.RequestOptions | https.RequestOptions = {
     host,
     port,
     path,
@@ -184,6 +203,7 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
       'User-Agent': 'NodeJS WinRM Client',
       Connection: 'keep-alive',
     },
+    ...(useHttps && { rejectUnauthorized: rejectUnauthorized ?? true }),
   };
 
   try {
@@ -199,7 +219,8 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
         },
       },
       '',
-      agent
+      agent,
+      httpModule
     );
 
     logger.debug('NTLM Step 0 response', {
@@ -224,7 +245,8 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
         },
       },
       '',
-      agent
+      agent,
+      httpModule
     );
 
     logger.debug('NTLM Step 1 response', {
@@ -276,7 +298,8 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
         },
       },
       data,
-      agent
+      agent,
+      httpModule
     );
 
     logger.debug('NTLM Step 3 response', {
@@ -306,10 +329,32 @@ export function sendHttp<T extends SoapEnvelope>(
   username: string,
   password: string,
   authMethod: AuthMethod,
-  timeout?: number
+  timeout?: number,
+  useHttps?: boolean,
+  rejectUnauthorized?: boolean
 ): Promise<T> {
   if (authMethod === 'ntlm') {
-    return sendHttpNtlm<T>(data, host, port, path, username, password, timeout);
+    return sendHttpNtlm<T>(
+      data,
+      host,
+      port,
+      path,
+      username,
+      password,
+      timeout,
+      useHttps,
+      rejectUnauthorized
+    );
   }
-  return sendHttpBasic<T>(data, host, port, path, username, password, timeout);
+  return sendHttpBasic<T>(
+    data,
+    host,
+    port,
+    path,
+    username,
+    password,
+    timeout,
+    useHttps,
+    rejectUnauthorized
+  );
 }
