@@ -1,6 +1,6 @@
 {
   "name": "winrm-client",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Make WinRM service calls from NodeJS",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,7 +22,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shide1989/nodejs-winrm.git"
+    "url": "git+https://github.com/shide1989/winrm-client.git"
   },
   "keywords": [
     "winrm"
@@ -30,9 +30,9 @@
   "author": "Sebastien Hideux",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/shide1989/nodejs-winrm/issues"
+    "url": "https://github.com/shide1989/winrm-client/issues"
   },
-  "homepage": "https://github.com/shide1989/nodejs-winrm#readme",
+  "homepage": "https://github.com/shide1989/winrm-client#readme",
   "engines": {
     "node": ">=16.0.0"
   },
