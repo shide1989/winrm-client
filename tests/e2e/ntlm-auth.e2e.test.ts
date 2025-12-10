@@ -4,7 +4,7 @@ const {
   JEST_WINRM_DOMAIN_USER,
   JEST_WINRM_DOMAIN_PASS,
   JEST_WINRM_DOMAIN_HOST,
-  JEST_WINRM_DOMAIN_PORT = '5985',
+  JEST_WINRM_DOMAIN_PORT,
 } = process.env;
 
 const hasNtlmCredentials =
