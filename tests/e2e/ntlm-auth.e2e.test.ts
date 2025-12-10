@@ -4,10 +4,18 @@ const {
   JEST_WINRM_DOMAIN_USER,
   JEST_WINRM_DOMAIN_PASS,
   JEST_WINRM_DOMAIN_HOST,
+  JEST_WINRM_DOMAIN_PORT = '5985',
 } = process.env;
 
 const hasNtlmCredentials =
   JEST_WINRM_DOMAIN_USER && JEST_WINRM_DOMAIN_PASS && JEST_WINRM_DOMAIN_HOST;
+
+const HTTPS_PORTS = [443, 5986, 8443];
+
+const port = Number(JEST_WINRM_DOMAIN_PORT);
+const useHttps = HTTPS_PORTS.includes(port);
+// For self-signed certificates in test environments
+const rejectUnauthorized = false;
 
 if (!hasNtlmCredentials) {
   throw new Error('Missing environment variables');
@@ -25,7 +33,10 @@ describeNtlm('NTLM Authentication', () => {
       JEST_WINRM_DOMAIN_HOST,
       JEST_WINRM_DOMAIN_USER,
       JEST_WINRM_DOMAIN_PASS,
-      5985
+      port,
+      false,
+      useHttps,
+      rejectUnauthorized
     );
     expect(result).toBeTruthy();
     expect(typeof result).toBe('string');
@@ -37,7 +48,9 @@ describeNtlm('NTLM Authentication', () => {
       JEST_WINRM_DOMAIN_HOST,
       JEST_WINRM_DOMAIN_USER,
       JEST_WINRM_DOMAIN_PASS,
-      5985
+      port,
+      useHttps,
+      rejectUnauthorized
     );
     expect(result).toBeTruthy();
     expect(typeof result).toBe('string');
@@ -49,7 +62,10 @@ describeNtlm('NTLM Authentication', () => {
       JEST_WINRM_DOMAIN_HOST,
       JEST_WINRM_DOMAIN_USER,
       JEST_WINRM_DOMAIN_PASS,
-      5985
+      port,
+      false,
+      useHttps,
+      rejectUnauthorized
     );
     // Result should contain the domain or username
     expect(result.toLowerCase()).toContain(

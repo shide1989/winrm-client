@@ -19,7 +19,9 @@ function createWinRMParams(
   host: string,
   port: number,
   username: string,
-  password: string
+  password: string,
+  useHttps?: boolean,
+  rejectUnauthorized?: boolean
 ): WinRMParams {
   return {
     host,
@@ -28,6 +30,8 @@ function createWinRMParams(
     username,
     password,
     authMethod: detectAuthMethod(username),
+    useHttps,
+    rejectUnauthorized,
   };
 }
 
@@ -37,8 +41,10 @@ function createWinRMParams(
  * @param host - Target host address
  * @param username - Username for authentication (supports local, DOMAIN\user, or user@domain.com formats)
  * @param password - Password for authentication
- * @param port - WinRM port (typically 5985 for HTTP)
+ * @param port - WinRM port (typically 5985 for HTTP, 5986 for HTTPS)
  * @param usePowershell - Whether to use PowerShell (default: false)
+ * @param useHttps - Use HTTPS instead of HTTP (default: false)
+ * @param rejectUnauthorized - Reject self-signed certificates (default: true)
  * @returns Command output
  */
 export async function runCommand(
@@ -47,10 +53,19 @@ export async function runCommand(
   username: string,
   password: string,
   port: number,
-  usePowershell = false
+  usePowershell = false,
+  useHttps = false,
+  rejectUnauthorized = true
 ): Promise<string> {
   const logger = createLogger('runCommand');
-  const params = createWinRMParams(host, port, username, password);
+  const params = createWinRMParams(
+    host,
+    port,
+    username,
+    password,
+    useHttps,
+    rejectUnauthorized
+  );
 
   logger.debug('Using auth method', { authMethod: params.authMethod });
 
@@ -84,7 +99,9 @@ export async function runCommand(
  * @param host - Target host address
  * @param username - Username for authentication
  * @param password - Password for authentication
- * @param port - WinRM port (typically 5985 for HTTP)
+ * @param port - WinRM port (typically 5985 for HTTP, 5986 for HTTPS)
+ * @param useHttps - Use HTTPS instead of HTTP (default: false)
+ * @param rejectUnauthorized - Reject self-signed certificates (default: true)
  * @returns Command output
  */
 export async function runPowershell(
@@ -92,9 +109,20 @@ export async function runPowershell(
   host: string,
   username: string,
   password: string,
-  port: number
+  port: number,
+  useHttps = false,
+  rejectUnauthorized = true
 ): Promise<string> {
-  return runCommand(command, host, username, password, port, true);
+  return runCommand(
+    command,
+    host,
+    username,
+    password,
+    port,
+    true,
+    useHttps,
+    rejectUnauthorized
+  );
 }
 
 /**
@@ -103,11 +131,13 @@ export async function runPowershell(
  * @param host - Target host address
  * @param username - Username for authentication (supports local, DOMAIN\user, or user@domain.com formats)
  * @param password - Password for authentication
- * @param port - WinRM port (typically 5985 for HTTP)
+ * @param port - WinRM port (typically 5985 for HTTP, 5986 for HTTPS)
  * @param prompts - Array of prompt patterns and responses
  * @param executionTimeout - Overall command timeout in ms (default: 60000)
  * @param httpTimeout - HTTP request timeout in ms
  * @param pollInterval - Output polling interval in ms (default: 500)
+ * @param useHttps - Use HTTPS instead of HTTP (default: false)
+ * @param rejectUnauthorized - Reject self-signed certificates (default: true)
  * @returns Command output
  */
 export async function runInteractiveCommand(
@@ -119,10 +149,19 @@ export async function runInteractiveCommand(
   prompts: InteractivePromptOutput[],
   executionTimeout?: number,
   httpTimeout?: number,
-  pollInterval?: number
+  pollInterval?: number,
+  useHttps = false,
+  rejectUnauthorized = true
 ): Promise<string> {
   const logger = createLogger('runInteractiveCommand');
-  const params = createWinRMParams(host, port, username, password);
+  const params = createWinRMParams(
+    host,
+    port,
+    username,
+    password,
+    useHttps,
+    rejectUnauthorized
+  );
 
   logger.debug('Using auth method', { authMethod: params.authMethod });
 
@@ -165,11 +204,13 @@ export async function runInteractiveCommand(
  * @param host - Target host address
  * @param username - Username for authentication (supports local, DOMAIN\user, or user@domain.com formats)
  * @param password - Password for authentication
- * @param port - WinRM port (typically 5985 for HTTP)
+ * @param port - WinRM port (typically 5985 for HTTP, 5986 for HTTPS)
  * @param prompts - Array of prompt patterns and responses
  * @param executionTimeout - Overall command timeout in ms (default: 60000)
  * @param httpTimeout - HTTP request timeout in ms
  * @param pollInterval - Output polling interval in ms (default: 500)
+ * @param useHttps - Use HTTPS instead of HTTP (default: false)
+ * @param rejectUnauthorized - Reject self-signed certificates (default: true)
  * @returns Command output
  */
 export async function runInteractivePowershell(
@@ -181,10 +222,19 @@ export async function runInteractivePowershell(
   prompts: InteractivePromptOutput[],
   executionTimeout?: number,
   httpTimeout?: number,
-  pollInterval?: number
+  pollInterval?: number,
+  useHttps = false,
+  rejectUnauthorized = true
 ): Promise<string> {
   const logger = createLogger('runInteractivePowershell');
-  const params = createWinRMParams(host, port, username, password);
+  const params = createWinRMParams(
+    host,
+    port,
+    username,
+    password,
+    useHttps,
+    rejectUnauthorized
+  );
 
   logger.debug('Using auth method', { authMethod: params.authMethod });
 
