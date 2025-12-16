@@ -6,7 +6,7 @@
 
 ⚠️ This is an updated fork of the original [nodejs-winrm](https://github.com/shoneslab/nodejs-winrm) project that doesn't seem to be maintained anymore.
 
-winrm-client is a NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines.
+winrm-client is a production-ready NodeJS client to access WinRM (Windows Remote Management) SOAP web service. It allows to execute commands on target windows machines.
 Please visit [Microsoft's WinRM site](http://msdn.microsoft.com/en-us/library/aa384426.aspx) for WINRM details.
 
 #### ⬆️ Migration from nodejs-winrm
@@ -380,10 +380,17 @@ Custom detectors are wrapped in try-catch blocks to prevent failures from breaki
 
 `npm test`
 
+### Test Server Setup (Windows)
+
+For e2e testing, use the included setup script on a Windows Server (AWS EC2, etc.):
+
+```bash
+# Via SSH
+ssh Administrator@<IP> "powershell -ExecutionPolicy Bypass" < scripts/setup-winrm.ps1
+```
+
+This configures WinRM + AD DS with a test user. See [`WINRM_SETUP.md`](WINRM_SETUP.md) for details.
+
 ## Maintainers
 
 - Sebastien Hideux (https://github.com/shide1989)
-
-## Credits
-
-- https://github.com/jacobludriks/winrmjs

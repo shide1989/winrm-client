@@ -140,8 +140,7 @@ export interface CreateShellResponseBody {
   };
 }
 
-export interface CreateShellResponse
-  extends SoapEnvelope<CreateShellResponseBody> {}
+export interface CreateShellResponse extends SoapEnvelope<CreateShellResponseBody> {}
 
 // Specific response body types
 export interface CommandResponseBody {
@@ -175,8 +174,7 @@ export interface SendInputParams extends CommandParams {
   input: string;
 }
 
-export interface SendInputResponse
-  extends SoapEnvelope<SendInputResponseBody> {}
+export interface SendInputResponse extends SoapEnvelope<SendInputResponseBody> {}
 
 export interface StreamData {
   name: string;
