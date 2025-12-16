@@ -27,7 +27,10 @@ function createNTLMv2Hash(
   targetName: string
 ): Buffer {
   const hmac = crypto.createHmac('md5', ntlmHash);
-  hmac.update(Buffer.from(username.toUpperCase() + targetName, 'ucs2'));
+  // Per MS-NLMP spec: both username AND domain must be uppercased
+  hmac.update(
+    Buffer.from(username.toUpperCase() + targetName.toUpperCase(), 'ucs2')
+  );
   return hmac.digest();
 }
 
@@ -49,13 +52,15 @@ function createLMv2Response(
   type2Message: Type2Message,
   username: string,
   ntlmHash: Buffer,
-  nonce: string
+  nonce: string,
+  domain: string
 ): Buffer {
   const buf = Buffer.alloc(24);
+  // Use the user-provided domain for the hash, not type2Message.targetName
   const ntlm2Hash = createNTLMv2Hash(
     ntlmHash,
     username,
-    type2Message.targetName
+    domain || type2Message.targetName
   );
   const hmac = crypto.createHmac('md5', ntlm2Hash);
 
@@ -80,14 +85,16 @@ function createNTLMv2Response(
   type2Message: Type2Message,
   username: string,
   ntlmHash: Buffer,
-  nonce: string
+  nonce: string,
+  domain: string
 ): Buffer {
   const targetInfoLen = type2Message.targetInfo?.buffer?.length || 0;
   const buf = Buffer.alloc(48 + targetInfoLen);
+  // Use the user-provided domain for the hash, not type2Message.targetName
   const ntlm2Hash = createNTLMv2Hash(
     ntlmHash,
     username,
-    type2Message.targetName
+    domain || type2Message.targetName
   );
   const hmac = crypto.createHmac('md5', ntlm2Hash);
 
@@ -174,12 +181,19 @@ export function createType3Message(
 
     const ntlmHash = createNTLMHash(password);
     const nonce = createPseudoRandomValue(16);
-    const lmv2 = createLMv2Response(type2Message, username, ntlmHash, nonce);
+    const lmv2 = createLMv2Response(
+      type2Message,
+      username,
+      ntlmHash,
+      nonce,
+      actualTarget
+    );
     const ntlmv2 = createNTLMv2Response(
       type2Message,
       username,
       ntlmHash,
-      nonce
+      nonce,
+      actualTarget
     );
 
     // lmv2 security buffer
