@@ -1,4 +1,8 @@
-import { decodeType2Message, createType3Message } from '../src/utils/ntlm';
+import {
+  createType1Message,
+  decodeType2Message,
+  createType3Message,
+} from '../src/utils/ntlm';
 import {
   buildType2Buffer,
   TEST_CHALLENGE,
@@ -7,6 +11,54 @@ import {
   FLAGS_UNICODE,
   FLAGS_NTLM2_KEY,
 } from './helpers/ntlm-test-vectors';
+
+describe('createType1Message', () => {
+  it('returns an "NTLM " prefixed base64 string', () => {
+    const result = createType1Message('', 'DOMAIN');
+    expect(result).toMatch(/^NTLM [A-Za-z0-9+/=]+$/);
+  });
+
+  it('decoded buffer has valid NTLMSSP signature and type=1', () => {
+    const result = createType1Message('', 'DOMAIN');
+    const buf = Buffer.from(result.replace(/^NTLM\s+/, ''), 'base64');
+
+    expect(buf.toString('ascii', 0, 7)).toBe('NTLMSSP');
+    expect(buf.readUInt32LE(8)).toBe(1);
+  });
+
+  it('includes domain name in the message', () => {
+    const result = createType1Message('', 'TESTDOMAIN');
+    const buf = Buffer.from(result.replace(/^NTLM\s+/, ''), 'base64');
+
+    // Domain security buffer at offset 16
+    const domainLen = buf.readUInt16LE(16);
+    const domainOffset = buf.readUInt32LE(20);
+    expect(domainLen).toBe(10); // "TESTDOMAIN".length
+    expect(buf.toString('ascii', domainOffset, domainOffset + domainLen)).toBe(
+      'TESTDOMAIN'
+    );
+  });
+
+  it('includes workstation name in the message', () => {
+    const result = createType1Message('MYPC', '');
+    const buf = Buffer.from(result.replace(/^NTLM\s+/, ''), 'base64');
+
+    // Workstation security buffer at offset 24
+    const wsLen = buf.readUInt16LE(24);
+    const wsOffset = buf.readUInt32LE(28);
+    expect(wsLen).toBe(4); // "MYPC".length
+    expect(buf.toString('ascii', wsOffset, wsOffset + wsLen)).toBe('MYPC');
+  });
+
+  it('sets NTLM2_KEY flag for NTLMv2 negotiation', () => {
+    const result = createType1Message('', '');
+    const buf = Buffer.from(result.replace(/^NTLM\s+/, ''), 'base64');
+
+    const flags = buf.readUInt32LE(12);
+    // NTLM2_KEY = 1 << 19 = 0x80000
+    expect(flags & 0x80000).toBeTruthy();
+  });
+});
 
 describe('decodeType2Message', () => {
   it('parses a valid Type 2 buffer with flags, challenge, and targetName', () => {

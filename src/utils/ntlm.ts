@@ -1,14 +1,17 @@
 /**
- * NTLMv2 implementation with proper AV_PAIR parsing, session key exchange,
- * MIC support, and BigInt timestamps. Fixes upstream bugs in ntlm-client.
+ * Self-contained NTLMv2 implementation (no ntlm-client dependency).
+ * Covers Type 1 (Negotiate), Type 2 (Challenge) decoding with AV_PAIR parsing,
+ * and Type 3 (Authenticate) with session key exchange, MIC, and BigInt timestamps.
  */
 import * as crypto from 'crypto';
 import md4 from 'js-md4';
 
-// Re-export createType1Message from ntlm-client (works fine as-is)
-export { createType1Message } from 'ntlm-client';
-
 const NTLMSIGNATURE = 'NTLMSSP\0';
+
+const NTLMFLAG_NEGOTIATE_OEM = 1 << 1;
+const NTLMFLAG_REQUEST_TARGET = 1 << 2;
+const NTLMFLAG_NEGOTIATE_NTLM = 1 << 9;
+const NTLMFLAG_NEGOTIATE_ALWAYS_SIGN = 1 << 15;
 
 const NTLMFLAG_NEGOTIATE_UNICODE = 1 << 0;
 const NTLMFLAG_NEGOTIATE_NTLM2_KEY = 1 << 19;
@@ -67,7 +70,58 @@ function windowsTimestamp(): Buffer {
   return buf;
 }
 
-// Own decodeType2Message — ntlm-client's doesn't parse AV_PAIRs
+// ── Type 1 (Negotiate) ─────────────────────────────────────────────
+
+/**
+ * Create NTLM Type 1 (Negotiate) message.
+ * Returns "NTLM <base64>" string.
+ */
+export function createType1Message(
+  workstation: string,
+  domain: string
+): string {
+  const domainBytes = Buffer.from(domain, 'ascii');
+  const workstationBytes = Buffer.from(workstation, 'ascii');
+
+  // Header: 32 bytes fixed + domain + workstation
+  const headerSize = 32;
+  const domainOffset = headerSize;
+  const workstationOffset = domainOffset + domainBytes.length;
+  const totalSize = workstationOffset + workstationBytes.length;
+
+  const buf = Buffer.alloc(totalSize);
+
+  // Signature
+  buf.write(NTLMSIGNATURE, 0, 8, 'ascii');
+  // Message type = 1
+  buf.writeUInt32LE(1, 8);
+  // Flags: OEM | REQUEST_TARGET | NTLM | ALWAYS_SIGN | NTLM2_KEY
+  const flags =
+    NTLMFLAG_NEGOTIATE_OEM |
+    NTLMFLAG_REQUEST_TARGET |
+    NTLMFLAG_NEGOTIATE_NTLM |
+    NTLMFLAG_NEGOTIATE_ALWAYS_SIGN |
+    NTLMFLAG_NEGOTIATE_NTLM2_KEY;
+  buf.writeUInt32LE(flags, 12);
+
+  // Domain security buffer (offset 16)
+  buf.writeUInt16LE(domainBytes.length, 16);
+  buf.writeUInt16LE(domainBytes.length, 18);
+  buf.writeUInt32LE(domainOffset, 20);
+
+  // Workstation security buffer (offset 24)
+  buf.writeUInt16LE(workstationBytes.length, 24);
+  buf.writeUInt16LE(workstationBytes.length, 26);
+  buf.writeUInt32LE(workstationOffset, 28);
+
+  // Data
+  domainBytes.copy(buf, domainOffset);
+  workstationBytes.copy(buf, workstationOffset);
+
+  return 'NTLM ' + buf.toString('base64');
+}
+
+// ── Type 2 (Challenge) decoding ────────────────────────────────────
 
 export function decodeType2Message(str: string): Type2Message {
   // Strip "NTLM " prefix if present
