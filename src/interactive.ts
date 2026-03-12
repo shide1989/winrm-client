@@ -192,7 +192,22 @@ export async function* pollCommandWithTimeout(
 
   while (Date.now() - startTime < executionTimeout) {
     try {
-      const result = await doReceiveOutputNonBlocking(params);
+      const remaining = executionTimeout - (Date.now() - startTime);
+      if (remaining <= 0) break;
+
+      // Race the HTTP call against the remaining execution timeout
+      const result = await Promise.race([
+        doReceiveOutputNonBlocking(params),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(`Polling timed out after ${executionTimeout}ms`)
+              ),
+            remaining
+          )
+        ),
+      ]);
 
       yield result;
 
