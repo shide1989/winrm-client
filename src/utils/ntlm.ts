@@ -8,6 +8,30 @@ import md4 from 'js-md4';
 
 const NTLMSIGNATURE = 'NTLMSSP\0';
 
+/**
+ * Pure JS RC4 encrypt/decrypt — avoids OpenSSL legacy provider requirement
+ * for the 'rc4' cipher which is disabled in OpenSSL 3.x+.
+ */
+function rc4Encrypt(key: Buffer, data: Buffer): Buffer {
+  const S = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) S[i] = i;
+  let j = 0;
+  for (let i = 0; i < 256; i++) {
+    j = (j + S[i] + key[i % key.length]) & 0xff;
+    [S[i], S[j]] = [S[j], S[i]];
+  }
+  const out = Buffer.alloc(data.length);
+  let x = 0;
+  j = 0;
+  for (let k = 0; k < data.length; k++) {
+    x = (x + 1) & 0xff;
+    j = (j + S[x]) & 0xff;
+    [S[x], S[j]] = [S[j], S[x]];
+    out[k] = data[k] ^ S[(S[x] + S[j]) & 0xff];
+  }
+  return out;
+}
+
 const NTLMFLAG_NEGOTIATE_OEM = 1 << 1;
 const NTLMFLAG_REQUEST_TARGET = 1 << 2;
 const NTLMFLAG_NEGOTIATE_NTLM = 1 << 9;
@@ -411,8 +435,7 @@ export function createType3Message(
 
   // ExportedSessionKey = random, encrypted with SessionBaseKey for key exchange
   const exportedSessionKey = crypto.randomBytes(16);
-  const rc4 = crypto.createCipheriv('rc4', sessionBaseKey, '');
-  const encryptedSessionKey = rc4.update(exportedSessionKey);
+  const encryptedSessionKey = rc4Encrypt(sessionBaseKey, exportedSessionKey);
 
   buf.writeUInt16LE(encryptedSessionKey.length, 52);
   buf.writeUInt16LE(encryptedSessionKey.length, 54);
