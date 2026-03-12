@@ -10,9 +10,48 @@ type HttpModule = typeof http | typeof https;
 
 const logger = createLogger('http');
 
-/**
- * Parse XML response into typed object.
- */
+// ── SPNEGO unwrapping ───────────────────────────────────────────────
+
+/** Unwrap SPNEGO NegTokenResp to extract raw NTLM token. */
+export function spnegoUnwrap(token: Buffer): Buffer {
+  if (token.length >= 7 && token.toString('ascii', 0, 7) === 'NTLMSSP') {
+    return token;
+  }
+  let pos = 0;
+  function readTag(): { tag: number; len: number; start: number } | null {
+    if (pos >= token.length) return null;
+    const tag = token[pos++];
+    let len = token[pos++];
+    if (len & 0x80) {
+      const numBytes = len & 0x7f;
+      len = 0;
+      for (let i = 0; i < numBytes; i++) {
+        len = (len << 8) | token[pos++];
+      }
+    }
+    return { tag, len, start: pos };
+  }
+  const outer = readTag();
+  if (!outer) return token;
+  const seq = readTag();
+  if (!seq || seq.tag !== 0x30) return token;
+  const seqEnd = seq.start + seq.len;
+  while (pos < seqEnd) {
+    const elem = readTag();
+    if (!elem) break;
+    if (elem.tag === 0xa2) {
+      const inner = readTag();
+      if (inner && inner.tag === 0x04) {
+        return token.subarray(inner.start, inner.start + inner.len);
+      }
+    }
+    pos = elem.start + elem.len;
+  }
+  return token;
+}
+
+// ── XML parsing ─────────────────────────────────────────────────────
+
 function parseXmlResponse<T>(dataBuffer: string): T {
   const parser = new XMLParser({
     ignoreAttributes: false,
@@ -22,9 +61,8 @@ function parseXmlResponse<T>(dataBuffer: string): T {
   return parser.parse(dataBuffer);
 }
 
-/**
- * Send HTTP request with Basic authentication.
- */
+// ── HTTP helpers ────────────────────────────────────────────────────
+
 function sendHttpBasic<T extends SoapEnvelope>(
   data: string,
   host: string,
@@ -102,10 +140,6 @@ function sendHttpBasic<T extends SoapEnvelope>(
   });
 }
 
-/**
- * Make HTTP request and return response with headers.
- * Used for NTLM handshake steps.
- */
 function makeRequest(
   options: http.RequestOptions | https.RequestOptions,
   body: string,
@@ -135,30 +169,16 @@ function makeRequest(
   });
 }
 
-/**
- * Extract NTLM/Negotiate token from WWW-Authenticate header.
- */
 function extractAuthToken(headers: http.IncomingHttpHeaders): string | null {
   const wwwAuth = headers['www-authenticate'];
   if (!wwwAuth) return null;
-
-  // Handle array or string
   const authHeader = Array.isArray(wwwAuth) ? wwwAuth[0] : wwwAuth;
-
-  // Match both "Negotiate <token>" and "NTLM <token>"
   const match = authHeader.match(/(?:Negotiate|NTLM)\s+([A-Za-z0-9+/=]+)/i);
   return match ? match[1] : null;
 }
 
-/**
- * Send HTTP request with NTLM authentication.
- * Implements the 3-step NTLM handshake:
- * 1. Send Type 1 (negotiate) message
- * 2. Receive Type 2 (challenge) message
- * 3. Send Type 3 (authenticate) message with response
- *
- * All requests must use the same TCP connection (keep-alive).
- */
+// ── NTLM handshake ──────────────────────────────────────────────────
+
 async function sendHttpNtlm<T extends SoapEnvelope>(
   data: string,
   host: string,
@@ -182,7 +202,6 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
     useHttps,
   });
 
-  // Keep-alive agent to maintain same TCP connection for NTLM handshake
   const agentOptions = {
     keepAlive: true,
     maxSockets: 1,
@@ -207,40 +226,16 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
   };
 
   try {
-    // Step 0: Initial request without auth to get server's supported methods
-    logger.debug('NTLM Step 0: Initial probe');
-
-    const probeResponse = await makeRequest(
-      {
-        ...baseOptions,
-        headers: {
-          ...baseOptions.headers,
-          'Content-Length': 0,
-        },
-      },
-      '',
-      agent,
-      httpModule
-    );
-
-    logger.debug('NTLM Step 0 response', {
-      statusCode: probeResponse.statusCode,
-      wwwAuth: probeResponse.headers['www-authenticate'],
-    });
-
-    // Step 1: Generate and send Type 1 message
-    // ntlm-client returns "NTLM <base64>", we need just the base64 part
+    // Step 1: Send Type 1 (raw NTLM with Negotiate scheme)
     const type1Full = ntlm.createType1Message('', parsed.domain);
-    const type1 = type1Full.replace(/^NTLM\s+/, '');
-
-    logger.debug('NTLM Step 1: Sending Type 1 message', { type1 });
+    const type1Raw = Buffer.from(type1Full.replace(/^NTLM\s+/, ''), 'base64');
 
     const step1Response = await makeRequest(
       {
         ...baseOptions,
         headers: {
           ...baseOptions.headers,
-          Authorization: `Negotiate ${type1}`,
+          Authorization: `Negotiate ${type1Raw.toString('base64')}`,
           'Content-Length': 0,
         },
       },
@@ -272,28 +267,35 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
       );
     }
 
-    logger.debug('NTLM Step 2: Received Type 2 challenge');
+    // Unwrap SPNEGO if the server wrapped the Type 2 response
+    const type2Bytes = Buffer.from(type2Token, 'base64');
+    const type2Raw = spnegoUnwrap(type2Bytes);
 
-    // Step 3: Generate and send Type 3 message
-    const type2Message = ntlm.decodeType2Message(type2Token);
-    // ntlm-client returns "NTLM <base64>", we need just the base64 part
+    const type2Message = ntlm.decodeType2Message(type2Raw.toString('base64'));
+
+    logger.debug('NTLM Step 2: Type 2 decoded', {
+      targetName: type2Message.targetName,
+      domain: type2Message.targetInfo?.parsed['DOMAIN'],
+    });
+
+    // Step 3: Send Type 3 authentication
     const type3Full = ntlm.createType3Message(
       type2Message,
       parsed.user,
       password,
       '',
-      parsed.domain
+      parsed.domain,
+      type1Raw,
+      type2Raw
     );
-    const type3 = type3Full.replace(/^NTLM\s+/, '');
-
-    logger.debug('NTLM Step 3: Sending Type 3 authentication', { type3 });
+    const type3Raw = Buffer.from(type3Full.replace(/^NTLM\s+/, ''), 'base64');
 
     const step3Response = await makeRequest(
       {
         ...baseOptions,
         headers: {
           ...baseOptions.headers,
-          Authorization: `Negotiate ${type3}`,
+          Authorization: `Negotiate ${type3Raw.toString('base64')}`,
           'Content-Length': Buffer.byteLength(data),
         },
       },
@@ -318,9 +320,8 @@ async function sendHttpNtlm<T extends SoapEnvelope>(
   }
 }
 
-/**
- * Send HTTP request with the specified authentication method.
- */
+// ── Public API ──────────────────────────────────────────────────────
+
 export function sendHttp<T extends SoapEnvelope>(
   data: string,
   host: string,
