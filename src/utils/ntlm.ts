@@ -1,253 +1,478 @@
 /**
- * NTLM authentication with pure JS MD4 (no OpenSSL dependency).
- * Based on ntlm-client but with js-md4 for Node 17+ compatibility.
+ * Self-contained NTLMv2 implementation (no ntlm-client dependency).
+ * Covers Type 1 (Negotiate), Type 2 (Challenge) decoding with AV_PAIR parsing,
+ * and Type 3 (Authenticate) with session key exchange, MIC, and BigInt timestamps.
  */
 import * as crypto from 'crypto';
 import md4 from 'js-md4';
 
-// Re-export unchanged functions from ntlm-client
-export { createType1Message, decodeType2Message } from 'ntlm-client';
+const NTLMSIGNATURE = 'NTLMSSP\0';
 
 /**
- * Create NT hash using pure JS MD4.
- * NT Hash = MD4(UTF16LE(password))
+ * Pure JS RC4 encrypt/decrypt — avoids OpenSSL legacy provider requirement
+ * for the 'rc4' cipher which is disabled in OpenSSL 3.x+.
  */
+function rc4Encrypt(key: Buffer, data: Buffer): Buffer {
+  const S = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) S[i] = i;
+  let j = 0;
+  for (let i = 0; i < 256; i++) {
+    j = (j + S[i] + key[i % key.length]) & 0xff;
+    [S[i], S[j]] = [S[j], S[i]];
+  }
+  const out = Buffer.alloc(data.length);
+  let x = 0;
+  j = 0;
+  for (let k = 0; k < data.length; k++) {
+    x = (x + 1) & 0xff;
+    j = (j + S[x]) & 0xff;
+    [S[x], S[j]] = [S[j], S[x]];
+    out[k] = data[k] ^ S[(S[x] + S[j]) & 0xff];
+  }
+  return out;
+}
+
+const NTLMFLAG_NEGOTIATE_OEM = 1 << 1;
+const NTLMFLAG_REQUEST_TARGET = 1 << 2;
+const NTLMFLAG_NEGOTIATE_NTLM = 1 << 9;
+const NTLMFLAG_NEGOTIATE_ALWAYS_SIGN = 1 << 15;
+
+const NTLMFLAG_NEGOTIATE_UNICODE = 1 << 0;
+const NTLMFLAG_NEGOTIATE_NTLM2_KEY = 1 << 19;
+const NTLMFLAG_NEGOTIATE_TARGET_INFO = 1 << 23;
+
+// AV_PAIR IDs (MS-NLMP §2.2.2.1)
+const MsvAvEOL = 0;
+const MsvAvNbComputerName = 1;
+const MsvAvNbDomainName = 2;
+const MsvAvDnsComputerName = 3;
+const MsvAvDnsDomainName = 4;
+const MsvAvDnsTreeName = 5;
+const MsvAvFlags = 6;
+const MsvAvTimestamp = 7;
+
+export interface TargetInfo {
+  parsed: Record<string, string>;
+  buffer: Buffer;
+  flags: number;
+  timestamp: Buffer | null;
+}
+
+export interface Type2Message {
+  flags: number;
+  encoding: BufferEncoding;
+  version: number;
+  challenge: Buffer;
+  targetName: string;
+  targetInfo?: TargetInfo;
+}
+
 function createNTLMHash(password: string): Buffer {
   const hash = md4.create();
   hash.update(Buffer.from(password, 'ucs2'));
   return Buffer.from(hash.arrayBuffer());
 }
 
-/**
- * Create NTLMv2 hash.
- */
 function createNTLMv2Hash(
   ntlmHash: Buffer,
   username: string,
-  targetName: string
+  domain: string
 ): Buffer {
-  const hmac = crypto.createHmac('md5', ntlmHash);
-  // Per MS-NLMP spec: both username AND domain must be uppercased
-  hmac.update(
-    Buffer.from(username.toUpperCase() + targetName.toUpperCase(), 'ucs2')
-  );
-  return hmac.digest();
+  // Per MS-NLMP: HMAC_MD5(NT_HASH, Uppercase(UserName) || UserDom)
+  // Note: UserDom is NOT uppercased per the spec
+  return crypto
+    .createHmac('md5', ntlmHash)
+    .update(Buffer.from(username.toUpperCase() + domain, 'ucs2'))
+    .digest();
 }
 
+function windowsTimestamp(): Buffer {
+  const EPOCH_DIFF = 11644473600000n;
+  const filetime = (BigInt(Date.now()) + EPOCH_DIFF) * 10000n;
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64LE(filetime);
+  return buf;
+}
+
+// ── Type 1 (Negotiate) ─────────────────────────────────────────────
+
 /**
- * Create random hex string.
+ * Create NTLM Type 1 (Negotiate) message.
+ * Returns "NTLM <base64>" string.
  */
-function createPseudoRandomValue(length: number): string {
-  let str = '';
-  while (str.length < length) {
-    str += Math.floor(Math.random() * 16).toString(16);
+export function createType1Message(
+  workstation: string,
+  domain: string
+): string {
+  const domainBytes = Buffer.from(domain, 'ascii');
+  const workstationBytes = Buffer.from(workstation, 'ascii');
+
+  // Header: 32 bytes fixed + domain + workstation
+  const headerSize = 32;
+  const domainOffset = headerSize;
+  const workstationOffset = domainOffset + domainBytes.length;
+  const totalSize = workstationOffset + workstationBytes.length;
+
+  const buf = Buffer.alloc(totalSize);
+
+  // Signature
+  buf.write(NTLMSIGNATURE, 0, 8, 'ascii');
+  // Message type = 1
+  buf.writeUInt32LE(1, 8);
+  // Flags: OEM | REQUEST_TARGET | NTLM | ALWAYS_SIGN | NTLM2_KEY
+  const flags =
+    NTLMFLAG_NEGOTIATE_OEM |
+    NTLMFLAG_REQUEST_TARGET |
+    NTLMFLAG_NEGOTIATE_NTLM |
+    NTLMFLAG_NEGOTIATE_ALWAYS_SIGN |
+    NTLMFLAG_NEGOTIATE_NTLM2_KEY;
+  buf.writeUInt32LE(flags, 12);
+
+  // Domain security buffer (offset 16)
+  buf.writeUInt16LE(domainBytes.length, 16);
+  buf.writeUInt16LE(domainBytes.length, 18);
+  buf.writeUInt32LE(domainOffset, 20);
+
+  // Workstation security buffer (offset 24)
+  buf.writeUInt16LE(workstationBytes.length, 24);
+  buf.writeUInt16LE(workstationBytes.length, 26);
+  buf.writeUInt32LE(workstationOffset, 28);
+
+  // Data
+  domainBytes.copy(buf, domainOffset);
+  workstationBytes.copy(buf, workstationOffset);
+
+  return 'NTLM ' + buf.toString('base64');
+}
+
+// ── Type 2 (Challenge) decoding ────────────────────────────────────
+
+export function decodeType2Message(str: string): Type2Message {
+  // Strip "NTLM " prefix if present
+  const ntlmMatch = /^NTLM\s+(.+)$/.exec(str);
+  if (ntlmMatch) str = ntlmMatch[1];
+
+  const buf = Buffer.from(str, 'base64');
+
+  if (buf.toString('ascii', 0, NTLMSIGNATURE.length) !== NTLMSIGNATURE) {
+    throw new Error('Invalid NTLM message signature');
   }
-  return str;
+  if (buf.readUInt32LE(8) !== 2) {
+    throw new Error('Invalid NTLM message type (expected Type 2)');
+  }
+
+  const flags = buf.readUInt32LE(20);
+  const encoding: BufferEncoding =
+    flags & NTLMFLAG_NEGOTIATE_UNICODE ? 'ucs2' : 'ascii';
+  const version = flags & NTLMFLAG_NEGOTIATE_NTLM2_KEY ? 2 : 1;
+  const challenge = Buffer.alloc(8);
+  buf.copy(challenge, 0, 24, 32);
+
+  // Target name
+  const targetNameLen = buf.readUInt16LE(12);
+  const targetNameOffset = buf.readUInt32LE(16);
+  const targetName =
+    targetNameLen > 0
+      ? buf.toString(
+          encoding,
+          targetNameOffset,
+          targetNameOffset + targetNameLen
+        )
+      : '';
+
+  // Target info (AV_PAIRs)
+  let targetInfo: TargetInfo | undefined;
+  if (flags & NTLMFLAG_NEGOTIATE_TARGET_INFO) {
+    const tiLen = buf.readUInt16LE(40);
+    const tiOffset = buf.readUInt32LE(44);
+
+    const tiBuffer = Buffer.alloc(tiLen);
+    buf.copy(tiBuffer, 0, tiOffset, tiOffset + tiLen);
+
+    const parsed: Record<string, string> = {};
+    let avFlags = 0;
+    let avTimestamp: Buffer | null = null;
+
+    let pos = tiOffset;
+    while (pos < tiOffset + tiLen) {
+      const avId = buf.readUInt16LE(pos);
+      pos += 2;
+      const avLen = buf.readUInt16LE(pos);
+      pos += 2;
+
+      if (avId === MsvAvEOL) break;
+
+      switch (avId) {
+        case MsvAvNbComputerName:
+          parsed['SERVER'] = buf.toString('ucs2', pos, pos + avLen);
+          break;
+        case MsvAvNbDomainName:
+          parsed['DOMAIN'] = buf.toString('ucs2', pos, pos + avLen);
+          break;
+        case MsvAvDnsComputerName:
+          parsed['FQDN'] = buf.toString('ucs2', pos, pos + avLen);
+          break;
+        case MsvAvDnsDomainName:
+          parsed['DNS'] = buf.toString('ucs2', pos, pos + avLen);
+          break;
+        case MsvAvDnsTreeName:
+          parsed['PARENT_DNS'] = buf.toString('ucs2', pos, pos + avLen);
+          break;
+        case MsvAvFlags:
+          avFlags = buf.readUInt32LE(pos);
+          break;
+        case MsvAvTimestamp:
+          avTimestamp = Buffer.alloc(8);
+          buf.copy(avTimestamp, 0, pos, pos + 8);
+          break;
+      }
+      pos += avLen;
+    }
+
+    targetInfo = {
+      parsed,
+      buffer: tiBuffer,
+      flags: avFlags,
+      timestamp: avTimestamp,
+    };
+  }
+
+  return { flags, encoding, version, challenge, targetName, targetInfo };
 }
 
-/**
- * Create LMv2 response.
- */
+// ── Type 3 (Authenticate) ──────────────────────────────────────────
+
 function createLMv2Response(
   type2Message: Type2Message,
   username: string,
   ntlmHash: Buffer,
-  nonce: string,
+  nonce: Buffer,
   domain: string
 ): Buffer {
-  const buf = Buffer.alloc(24);
-  // Use the user-provided domain for the hash, not type2Message.targetName
   const ntlm2Hash = createNTLMv2Hash(
     ntlmHash,
     username,
     domain || type2Message.targetName
   );
   const hmac = crypto.createHmac('md5', ntlm2Hash);
+  const buf = Buffer.alloc(24);
 
-  // server challenge
   type2Message.challenge.copy(buf, 8);
+  nonce.copy(buf, 16);
 
-  // client nonce
-  buf.write(nonce, 16, 'hex');
-
-  // create hash
-  hmac.update(buf.slice(8));
-  const hashedBuffer = hmac.digest();
-  hashedBuffer.copy(buf);
-
+  hmac.update(buf.subarray(8));
+  hmac.digest().copy(buf);
   return buf;
 }
 
-/**
- * Create NTLMv2 response.
- */
 function createNTLMv2Response(
   type2Message: Type2Message,
   username: string,
   ntlmHash: Buffer,
-  nonce: string,
+  nonce: Buffer,
   domain: string
 ): Buffer {
   const targetInfoLen = type2Message.targetInfo?.buffer?.length || 0;
-  const buf = Buffer.alloc(48 + targetInfoLen);
-  // Use the user-provided domain for the hash, not type2Message.targetName
   const ntlm2Hash = createNTLMv2Hash(
     ntlmHash,
     username,
     domain || type2Message.targetName
   );
-  const hmac = crypto.createHmac('md5', ntlm2Hash);
 
-  // First 8 bytes reserved for hash result
+  // NTLMv2 blob: 8 (hash placeholder) + 8 (challenge) + blob structure + targetInfo + 4 (zero)
+  const blobLen = 28 + targetInfoLen + 4; // signature(4) + reserved(4) + timestamp(8) + nonce(8) + reserved(4) + targetInfo + zero(4)
+  const buf = Buffer.alloc(8 + 8 + blobLen); // hash(8) + challenge(8) + blob
 
   // server challenge (bytes 8-16)
   type2Message.challenge.copy(buf, 8);
 
-  // blob signature (bytes 16-20)
-  buf.writeUInt32BE(0x01010000, 16);
+  // blob starts at offset 16
+  let pos = 16;
 
-  // reserved (bytes 20-24)
-  buf.writeUInt32LE(0, 20);
+  // blob signature
+  buf.writeUInt32BE(0x01010000, pos);
+  pos += 4;
 
-  // timestamp (bytes 24-32)
-  // 11644473600000 = diff between 1970 and 1601
-  const timestamp = ((Date.now() + 11644473600000) * 10000).toString(16);
-  const timestampLow = Number(
-    '0x' + timestamp.substring(Math.max(0, timestamp.length - 8))
-  );
-  const timestampHigh = Number(
-    '0x' + timestamp.substring(0, Math.max(0, timestamp.length - 8))
-  );
-  buf.writeUInt32LE(timestampLow, 24);
-  buf.writeUInt32LE(timestampHigh, 28);
+  // reserved
+  buf.writeUInt32LE(0, pos);
+  pos += 4;
 
-  // random client nonce (bytes 32-40)
-  buf.write(nonce, 32, 'hex');
+  // timestamp — use server timestamp from AV_PAIR if available, otherwise generate
+  const ts = type2Message.targetInfo?.timestamp || windowsTimestamp();
+  ts.copy(buf, pos);
+  pos += 8;
 
-  // zero (bytes 40-44)
-  buf.writeUInt32LE(0, 40);
+  // client nonce
+  nonce.copy(buf, pos);
+  pos += 8;
 
-  // target info (bytes 44+)
+  // reserved
+  buf.writeUInt32LE(0, pos);
+  pos += 4;
+
+  // target info
   if (type2Message.targetInfo?.buffer) {
-    type2Message.targetInfo.buffer.copy(buf, 44);
+    type2Message.targetInfo.buffer.copy(buf, pos);
+    pos += targetInfoLen;
   }
 
-  // zero after target info
-  buf.writeUInt32LE(0, 44 + targetInfoLen);
+  // zero terminator
+  buf.writeUInt32LE(0, pos);
 
-  hmac.update(buf.slice(8));
-  const hashedBuffer = hmac.digest();
-  hashedBuffer.copy(buf);
+  // HMAC over server challenge + blob
+  const hmac = crypto.createHmac('md5', ntlm2Hash);
+  hmac.update(buf.subarray(8));
+  hmac.digest().copy(buf);
 
+  // Full buffer: NTProofStr(16) + blob — the 16-byte HMAC overwrites
+  // both the 8-byte placeholder and 8-byte server challenge at offset 0
   return buf;
-}
-
-interface Type2Message {
-  flags: number;
-  encoding: string;
-  version: number;
-  challenge: Buffer;
-  targetName: string;
-  targetInfo?: {
-    buffer: Buffer;
-  };
 }
 
 /**
  * Create NTLM Type 3 (Authenticate) message.
- * Compatible with ntlm-client but uses pure JS MD4.
+ * Supports MIC when the server's Type 2 requests it via MsvAvFlags.
+ *
+ * Returns { message, type1Bytes } so the caller can provide type1Bytes
+ * for MIC computation if needed. In practice, MIC is computed here
+ * and the caller just needs the message string.
  */
 export function createType3Message(
   type2Message: Type2Message,
   username: string,
   password: string,
   workstation: string,
-  target: string
+  target: string,
+  type1Bytes?: Buffer,
+  type2Bytes?: Buffer
 ): string {
-  let dataPos = 52;
-  const buf = Buffer.alloc(1024);
+  const buf = Buffer.alloc(4096);
+  const encoding = type2Message.encoding;
 
-  // Use target from type2 if not provided
-  const actualTarget = target || type2Message.targetName;
+  // For the NTLMv2 hash, use the server's authoritative domain from Type 2
+  // (MsvAvNbDomainName or targetName), NOT the user-provided domain.
+  // The DC computes the hash with its own domain name, so we must match.
+  const hashTarget =
+    type2Message.targetInfo?.parsed['DOMAIN'] ||
+    type2Message.targetName ||
+    target;
+  // For the Type 3 domain security buffer, use the server's domain too
+  const actualTarget = hashTarget;
 
-  // signature
-  buf.write('NTLMSSP\0', 0, 8, 'ascii');
+  // Check if MIC is required
+  const micRequired = (type2Message.targetInfo?.flags ?? 0) & 0x02;
+  // Header size: 64 base + 16 for MIC if needed = 80
+  const headerSize = micRequired ? 88 : 72;
+  let dataPos = headerSize;
 
-  // message type
+  // Signature
+  buf.write(NTLMSIGNATURE, 0, 8, 'ascii');
+  // Message type
   buf.writeUInt32LE(3, 8);
 
-  if (type2Message.version === 2) {
-    dataPos = 64;
+  const ntlmHash = createNTLMHash(password);
+  const nonce = crypto.randomBytes(8);
+  const lmv2 = createLMv2Response(
+    type2Message,
+    username,
+    ntlmHash,
+    nonce,
+    actualTarget
+  );
+  const ntlmv2 = createNTLMv2Response(
+    type2Message,
+    username,
+    ntlmHash,
+    nonce,
+    actualTarget
+  );
 
-    const ntlmHash = createNTLMHash(password);
-    const nonce = createPseudoRandomValue(16);
-    const lmv2 = createLMv2Response(
-      type2Message,
-      username,
-      ntlmHash,
-      nonce,
-      actualTarget
-    );
-    const ntlmv2 = createNTLMv2Response(
-      type2Message,
-      username,
-      ntlmHash,
-      nonce,
-      actualTarget
-    );
+  // LMv2 security buffer (offset 12)
+  buf.writeUInt16LE(lmv2.length, 12);
+  buf.writeUInt16LE(lmv2.length, 14);
+  buf.writeUInt32LE(dataPos, 16);
+  lmv2.copy(buf, dataPos);
+  dataPos += lmv2.length;
 
-    // lmv2 security buffer
-    buf.writeUInt16LE(lmv2.length, 12);
-    buf.writeUInt16LE(lmv2.length, 14);
-    buf.writeUInt32LE(dataPos, 16);
-    lmv2.copy(buf, dataPos);
-    dataPos += lmv2.length;
+  // NTLMv2 security buffer (offset 20)
+  buf.writeUInt16LE(ntlmv2.length, 20);
+  buf.writeUInt16LE(ntlmv2.length, 22);
+  buf.writeUInt32LE(dataPos, 24);
+  ntlmv2.copy(buf, dataPos);
+  dataPos += ntlmv2.length;
 
-    // ntlmv2 security buffer
-    buf.writeUInt16LE(ntlmv2.length, 20);
-    buf.writeUInt16LE(ntlmv2.length, 22);
-    buf.writeUInt32LE(dataPos, 24);
-    ntlmv2.copy(buf, dataPos);
-    dataPos += ntlmv2.length;
-  } else {
-    // NTLMv1 - not typically used anymore but included for completeness
-    throw new Error('NTLMv1 not supported - server requires NTLMv2');
-  }
-
-  const encoding = type2Message.encoding as BufferEncoding;
-
-  // target name security buffer
-  const targetLen =
-    encoding === 'ascii' ? actualTarget.length : actualTarget.length * 2;
-  buf.writeUInt16LE(targetLen, 28);
-  buf.writeUInt16LE(targetLen, 30);
+  // Target name security buffer (offset 28)
+  const targetBytes = Buffer.from(actualTarget, encoding);
+  buf.writeUInt16LE(targetBytes.length, 28);
+  buf.writeUInt16LE(targetBytes.length, 30);
   buf.writeUInt32LE(dataPos, 32);
-  dataPos += buf.write(actualTarget, dataPos, encoding);
+  targetBytes.copy(buf, dataPos);
+  dataPos += targetBytes.length;
 
-  // user name security buffer
-  const usernameLen =
-    encoding === 'ascii' ? username.length : username.length * 2;
-  buf.writeUInt16LE(usernameLen, 36);
-  buf.writeUInt16LE(usernameLen, 38);
+  // User name security buffer (offset 36)
+  const usernameBytes = Buffer.from(username, encoding);
+  buf.writeUInt16LE(usernameBytes.length, 36);
+  buf.writeUInt16LE(usernameBytes.length, 38);
   buf.writeUInt32LE(dataPos, 40);
-  dataPos += buf.write(username, dataPos, encoding);
+  usernameBytes.copy(buf, dataPos);
+  dataPos += usernameBytes.length;
 
-  // workstation name security buffer
-  const workstationLen =
-    encoding === 'ascii' ? workstation.length : workstation.length * 2;
-  buf.writeUInt16LE(workstationLen, 44);
-  buf.writeUInt16LE(workstationLen, 46);
+  // Workstation name security buffer (offset 44)
+  const workstationBytes = Buffer.from(workstation, encoding);
+  buf.writeUInt16LE(workstationBytes.length, 44);
+  buf.writeUInt16LE(workstationBytes.length, 46);
   buf.writeUInt32LE(dataPos, 48);
-  dataPos += buf.write(workstation, dataPos, encoding);
+  workstationBytes.copy(buf, dataPos);
+  dataPos += workstationBytes.length;
 
-  if (type2Message.version === 2) {
-    // session key security buffer
-    buf.writeUInt16LE(0, 52);
-    buf.writeUInt16LE(0, 54);
-    buf.writeUInt32LE(0, 56);
+  // Session key security buffer (offset 52) — compute and include
+  // SessionBaseKey = HMAC_MD5(NTLMv2Hash, first 16 bytes of NTLMv2 response)
+  const ntlm2Hash = createNTLMv2Hash(ntlmHash, username, actualTarget);
+  const sessionBaseKey = crypto
+    .createHmac('md5', ntlm2Hash)
+    .update(ntlmv2.subarray(0, 16))
+    .digest();
 
-    // flags
-    buf.writeUInt32LE(type2Message.flags, 60);
+  // ExportedSessionKey = random, encrypted with SessionBaseKey for key exchange
+  const exportedSessionKey = crypto.randomBytes(16);
+  const encryptedSessionKey = rc4Encrypt(sessionBaseKey, exportedSessionKey);
+
+  buf.writeUInt16LE(encryptedSessionKey.length, 52);
+  buf.writeUInt16LE(encryptedSessionKey.length, 54);
+  buf.writeUInt32LE(dataPos, 56);
+  encryptedSessionKey.copy(buf, dataPos);
+  dataPos += encryptedSessionKey.length;
+
+  // Flags (offset 60)
+  buf.writeUInt32LE(type2Message.flags >>> 0, 60);
+
+  // Version (offset 64) — 8 bytes, optional but helps with compat
+  // Major.Minor.Build.NTLMRevision = 10.0.19041.15
+  buf.writeUInt8(10, 64); // Major
+  buf.writeUInt8(0, 65); // Minor
+  buf.writeUInt16LE(19041, 66); // Build
+  buf.writeUInt8(0, 68); // Revision (padding)
+  buf.writeUInt8(0, 69);
+  buf.writeUInt8(0, 70);
+  buf.writeUInt8(15, 71); // NTLM revision current
+
+  // MIC (offset 72) — 16 bytes, zero first then compute
+  if (micRequired && type1Bytes && type2Bytes) {
+    // Zero the MIC field first
+    buf.fill(0, 72, 88);
+
+    const type3Bytes = buf.subarray(0, dataPos);
+    const mic = crypto
+      .createHmac('md5', exportedSessionKey)
+      .update(type1Bytes)
+      .update(type2Bytes)
+      .update(type3Bytes)
+      .digest();
+    mic.copy(buf, 72);
+  } else if (micRequired) {
+    // MIC required but we don't have type1/type2 bytes — zero it
+    // This shouldn't happen if the caller passes them correctly
+    buf.fill(0, 72, 88);
   }
 
   return 'NTLM ' + buf.toString('base64', 0, dataPos);
