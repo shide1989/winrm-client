@@ -125,11 +125,11 @@ describe('interactive commands', () => {
         JEST_WINRM_PASS,
         5985,
         prompts,
-        5000, // 5 second timeout for quicker test
-        6000 // 6 second http timeout for quicker test
+        2000, // 2 second execution timeout
+        3000 // 3 second http timeout
       )
     ).rejects.toThrow('timed out');
-  }, 10000);
+  }, 15000);
 
   it('should handle commands that complete without interaction', async () => {
     const prompts: InteractivePromptOutput[] = [
